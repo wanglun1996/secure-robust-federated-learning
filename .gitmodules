@@ -1,0 +1,3 @@
+[submodule "infimnist_py"]
+	path = infimnist_py
+	url = https://github.com/albietz/infimnist_py.git
