@@ -45,6 +45,57 @@ def filterL2(samples, sigma=1):
 
         # return
 
+def geometric_median(samples):
+    size = samples.shape[0]
+    metric = []
+
+    for idx in range(samples.shape[0]):
+        sample = samples[idx]
+        samples_ = np.delete(samples, idx, axis=0)
+        metric.append(np.sum([np.linalg.norm(sample-sample_) for sample_ in samples_]))
+
+    return samples[np.argmin(metric)] 
+
+def krum(samples, f=0):
+    size = samples.shape[0]
+    # assert this is positive
+    size_ = size - f - 2
+    metric = []
+
+    for idx in range(samples.shape[0]):
+        sample = samples[idx]
+        samples_ = np.delete(samples, idx, axis=0)
+        dis = np.array([np.linalg.norm(sample-sample_) for sample_ in samples_])
+        metric.append(np.sum(dis[np.argsort(dis)[:size_]]))
+
+    return samples[np.argmin(metric)]
+
+def bulyan(samples, agg=krum, args=None, theta=2):
+    feature_size = samples.shape[1]
+    # beta = theta - 2*f
+    #FIXME: the above is correct
+    beta = 2
+    S = []
+
+    for _ in range(theta):
+       picked_sample = agg(samples)
+       S.append(picked_sample)
+       samples = np.delete(samples, np.argwhere([picked_sample])[:1], axis=0)
+
+    S = np.array(S)
+    res = np.zeros(feature_size)
+    # coordinate-wise median
+    for idx in range(feature_size):
+        samples_ = S[:, idx]
+        med = np.median(samples_)
+        idxs = np.argsort([np.abs(sample_-med) for sample_ in samples_])[:beta]
+        res[idx] = np.average(S[idxs])
+
+    print(res)
+    return res
+    
+
 if __name__ == '__main__':
     data = np.array([[0, 2], [1, 1], [2, 0]])#simulate()
-    filterL2(data)
+    # filterL2(data)
+    bulyan(data)

@@ -1,6 +1,7 @@
 import torch
 from torch import nn, optim, hub
 import torch.nn.functional as F
+import numpy as np
 
 class MultiLayerPerceptron(nn.Module):
 
@@ -118,3 +119,18 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
+
+if __name__ == '__main__':
+    params = [np.array([[1, 2], [3, 4]]), np.array([5, 6])]
+    flat = flatten_params(params)
+    print(flat)
+    ptr = 0
+    res = []
+    for p in list(params):
+        shape = p.shape
+        print(shape)
+        size = np.prod(shape)
+        res.append(np.reshape(flat[ptr:ptr+size], shape))
+        ptr += size
+    print(res)
+
