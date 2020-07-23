@@ -4,9 +4,10 @@ import torch
 import torchvision
 from torch.utils.data import Dataset, DataLoader, random_split
 from networks import MultiLayerPerceptron, ConvNet
-from data import gen_infimnist, MyDataset
+from data import gen_infimnist, MyDataset, MalDataset
 import torch.nn.functional as F
 from torch import nn, optim, hub
+from attack import mal_single
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
@@ -35,6 +36,12 @@ if __name__ == '__main__':
     parser.add_argument('--momentum')
     parser.add_argument('--weightdecay')
     parser.add_argument('--network')
+
+    # Malicious agent setting
+    parser.add_argument('--mal', type=bool, default=True)
+    parser.add_argument('--mal_num', type=int, default=1)
+    parser.add_argument('--mal_index', default=[0])
+    parser.add_argument('--mal_boost', type=float, default=10.0)
     args = parser.parse_args()
 
     # FIXME: arrage the order and clean up the unnecessary things
@@ -110,7 +117,11 @@ if __name__ == '__main__':
     # define performance metrics
     ups = 0
 
-    for epoch in range(EPOCH):  
+    # store malicious round
+    mal_visible = []
+
+    for epoch in range(EPOCH):
+        mal_active = 0
         # select workers per subset 
         print("Epoch: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND)
@@ -120,38 +131,81 @@ if __name__ == '__main__':
             params_copy.append(p.clone())
         for c in choices:
             print(c)
-            for iepoch in range(0, LOCALITER):
-                for idx, (feature, target) in enumerate(train_loaders[c], 0):
-                    feature = feature.to(device)
-                    target = target.type(torch.long).to(device)
-                    optimizer.zero_grad()
-                    output = network(feature)
-                    loss = criterion(output, target)
-                    loss.backward()
-                    optimizer.step()
+            if c in args.mal_index:
+                for iepoch in range(0, LOCALITER):
+                    # FIXME: mal_data_loader with true label
+                    for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders[c], 0):
+                        feature = feature.to(device)
+                        true_label = true_label.type(torch.long).to(device)
+                        optimizer.zero_grad()
+                        output = network(feature)
+                        loss = criterion(output, true_label)
+                        loss.backward()
+                        optimizer.step()
 
+                for idx, p in enumerate(network.parameters()):
+                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+                params_temp = []
+
+                for p in list(network.parameters()):
+                    params_temp.append(p.clone())
+                
+                delta_mal = mal_single(mal_train_loaders, network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True)
+                
+                for idx, p in enumerate(local_grads[c]):
+                    local_grads[c][idx] = p.data.cpu().numpy() + args.mal_boost * delta_mal[idx]
+                
+                mal_active = 1
+
+            else:
+                for iepoch in range(0, LOCALITER):
+                    for idx, (feature, target) in enumerate(train_loaders[c], 0):
+                        feature = feature.to(device)
+                        target = target.type(torch.long).to(device)
+                        optimizer.zero_grad()
+                        output = network(feature)
+                        loss = criterion(output, target)
+                        loss.backward()
+                        optimizer.step()
             # compute the difference
-            for idx, p in enumerate(network.parameters()):
-                local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+                for idx, p in enumerate(network.parameters()):
+                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
             # manually restore the parameters of the global network
             with torch.no_grad():
                 for idx, p in enumerate(list(network.parameters())):
                     p.copy_(params_copy[idx])
 
-        # aggregation
-        average_grad = []
-        for p in list(network.parameters()):
-            average_grad.append(np.zeros(p.data.shape))
-        for c in choices:
+        if args.mal and mal_active:
+            average_grad = []
+            for p in list(network.parameters()):
+                average_grad.append(np.zeros(p.data.shape))
+            for c in choices:
+                if c not in args.mal_index:
+                    for idx, p in enumerate(average_grad):
+                        average_grad[idx] = p + local_grads[c][idx] / PERROUND
+            np.save('./checkpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
+
             for idx, p in enumerate(average_grad):
-                average_grad[idx] = p + local_grads[c][idx] / PERROUND
+                average_grad[idx] = p + local_grads[args.mal_index][idx] / PERROUND
+            mal_visible.append(epoch)
+            mal_active = 0
+
+        else:
+            # aggregation
+            average_grad = []
+            for p in list(network.parameters()):
+                average_grad.append(np.zeros(p.data.shape))
+            for c in choices:
+                for idx, p in enumerate(average_grad):
+                    average_grad[idx] = p + local_grads[c][idx] / PERROUND
 
         params = list(network.parameters())
         with torch.no_grad():
             for idx in range(len(params)):
                 grad = torch.from_numpy(average_grad[idx]).to(device)
                 params[idx].data.sub_(grad)
+        
 
         if (epoch+1) % CHECK_POINT == 0:
             test_loss = 0

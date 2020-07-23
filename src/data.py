@@ -24,6 +24,31 @@ class MyDataset(Dataset):
     def __len__(self):
         return self.target.shape[0]
 
+# malicious data loader, return (X, mal_X, Y, mal_Y)
+class MalDataset(Dataset):
+    def __init__(self, feature_path, mal_data_path, true_label_path, target_path, transfrom=None):
+        self.feature = np.load(feature_path)
+        self.mal_dada = np.load(mal_data_path)
+        self.true_label = np.load(true_label_path)
+        self.target = np.load(target_path)
+
+        self.transfrom = transfrom
+    
+    def __getitem__(self, idx):
+        sample = self.feature[idx]
+        mal_data = self.mal_dada[idx]
+        if self.transform:
+            sample = self.transform(sample).view(28*28)
+            mal_data = self.transfrom(mal_data).view(28*28)
+        return sample, mal_data, self.true_label[idx], self.target[idx]
+    
+    def __len__(self):
+        return self.target.shape[0]
+
+def gen_mal_data():
+    # FIXME
+    return None
+
 def gen_infimnist(start=0, end=10000, split=0.8):
     mnist = infimnist.InfimnistGenerator()
     indexes = np.array(np.arange(start, end), dtype=np.int64)
