@@ -2,4 +2,3 @@ venv
 *.pyc
 *.npy
 *cifar*
-data/*
