@@ -14,7 +14,7 @@ mv ./infimnist/data ./infimnist_py
 rm -rf infimnist
 rm infimnist.tar.gz
 
-mv ./setup.py ./infimnist_py/setup.py
+cp ./setup.py ./infimnist_py/setup.py
 cd infimnist_py
 python setup.py build_ext -if
 cd ..
