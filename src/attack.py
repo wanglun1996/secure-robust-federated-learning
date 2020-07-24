@@ -91,20 +91,22 @@ def mal_single(mal_train_loaders, network, criterion, optimizer, params_copy, de
         delta_mal.append(np.zeros(p.data.shape))
     
     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
-        mal_data = mal_data.to(device)
-        target = target.type(torch.long).to(device)
+        feature = feature.type(torch.long).to(device)
         true_label = true_label.type(torch.long).to(device)
+        output = network(feature)
         optimizer.zero_grad()
-        output = network(mal_data)
         loss_val = criterion(output, true_label)
-        loss_mal = criterion(output, target)
-
-        loss, mal_loss = weight_constrain(loss_val, loss_mal, network, constrain_weights, t)
+        loss, _ = weight_constrain(loss_val, loss_mal, network, constrain_weights, t)
         loss.backward()
         optimizer.step()
 
+        mal_data = mal_data.to(device)
+        target = target.type(torch.long).to(device)
+        output = network(mal_data)
+        loss_mal = criterion(output, target)
+
         optimizer.zero_grad()
-        mal_loss.backward()
+        loss_mal.backward()
         optimizer.step()
 
     for idx, p in enumerate(list(network.parameters())):
