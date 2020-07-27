@@ -158,7 +158,7 @@ if __name__ == '__main__':
                 delta_mal = mal_single(mal_train_loaders, network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True)
                 
                 for idx, p in enumerate(local_grads[c]):
-                    local_grads[c][idx] = p.data.cpu().numpy() + args.mal_boost * delta_mal[idx]
+                    local_grads[c][idx] = p + args.mal_boost * delta_mal[idx]
                 
                 mal_active = 1
 
@@ -189,10 +189,10 @@ if __name__ == '__main__':
                 if c not in args.mal_index:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
-            np.save('./checkpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
+            np.save('../checkpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
 
             for idx, p in enumerate(average_grad):
-                average_grad[idx] = p + local_grads[args.mal_index][idx] / PERROUND
+                average_grad[idx] = p + local_grads[args.mal_index[0]][idx] / PERROUND
             mal_visible.append(epoch)
             mal_active = 0
 
