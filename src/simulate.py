@@ -12,12 +12,16 @@ from attack import mal_single
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
 
+MAL_FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
+MAL_TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
+MAL_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='0')
     parser.add_argument('--dataset', default='INFIMNIST')
-    parser.add_argument('--nworker', type=int, default=100)
+    parser.add_argument('--nworker', type=int, default=10)
     parser.add_argument('--perround', type=int, default=10)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=100) 
@@ -75,6 +79,7 @@ if __name__ == '__main__':
         train_set = MyDataset(FEATURE_TEMPLATE%('train',0,10000), TARGET_TEMPLATE%('train',0,10000), transform=transform)
         test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,10000), TARGET_TEMPLATE%('test',0,10000), transform=transform), batch_size=BATCH_SIZE)
 
+        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',0,100), MAL_TRUE_LABEL_TEMPLATE%('train',0,100), MAL_TARGET_TEMPLATE%('train',0,100), transform=transform), batch_size=BATCH_SIZE)
 
         network = MultiLayerPerceptron().to(device)
 
@@ -134,7 +139,7 @@ if __name__ == '__main__':
             if args.mal and c in args.mal_index:
                 for iepoch in range(0, LOCALITER):
                     # FIXME: mal_data_loader with true label
-                    for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders[c], 0):
+                    for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
                         feature = feature.to(device)
                         true_label = true_label.type(torch.long).to(device)
                         optimizer.zero_grad()
