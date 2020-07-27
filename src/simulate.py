@@ -131,7 +131,7 @@ if __name__ == '__main__':
             params_copy.append(p.clone())
         for c in choices:
             print(c)
-            if c in args.mal_index:
+            if args.mal and c in args.mal_index:
                 for iepoch in range(0, LOCALITER):
                     # FIXME: mal_data_loader with true label
                     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders[c], 0):
