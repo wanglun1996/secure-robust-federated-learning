@@ -33,14 +33,14 @@ class MalDataset(Dataset):
         self.true_label = np.load(true_label_path)
         self.target = np.load(target_path)
 
-        self.transfrom = transfrom
+        self.transform = transform
     
     def __getitem__(self, idx):
         sample = self.feature[idx]
         mal_data = self.mal_dada[idx]
         if self.transform:
             sample = self.transform(sample).view(28*28)
-            mal_data = self.transfrom(mal_data).view(28*28)
+            mal_data = self.transform(mal_data).view(28*28)
         return sample, mal_data, self.true_label[idx], self.target[idx]
     
     def __len__(self):
