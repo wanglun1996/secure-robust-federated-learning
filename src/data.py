@@ -27,7 +27,7 @@ class MyDataset(Dataset):
 
 # malicious data loader, return (X, mal_X, Y, mal_Y)
 class MalDataset(Dataset):
-    def __init__(self, feature_path, true_label_path, target_path, transfrom=None):
+    def __init__(self, feature_path, true_label_path, target_path, transform=None):
         self.feature = np.load(feature_path)
         self.mal_dada = np.load(feature_path)
         self.true_label = np.load(true_label_path)
