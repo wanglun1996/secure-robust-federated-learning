@@ -18,7 +18,7 @@ class MyDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.feature[idx]
         if self.transform:
-            sample = self.transform(sample).view(28*28)
+            sample = self.transform(sample)
         return sample, self.target[idx]
     
     def __len__(self):

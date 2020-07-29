@@ -13,31 +13,35 @@ class ReshapeTransform:
     def __call__(self, img):
         return torch.reshape(img, self.new_size)
 
-def backdoor(network, train_loader, test_loader, threshold=0.9, device='cpu', lr=1e-3):
+def backdoor(network, train_loader, test_loader, threshold=90, device='cpu', lr=1e-4, batch_size=10):
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(network.parameters(), lr=lr)
+    optimizer = optim.Adam(network.parameters(), lr=lr)
 
     acc = 0.0
     attack_acc = 0.0
-    while acc < threshold and attack_acc < threshold:
+    while (acc < threshold) or (attack_acc < threshold):
         for idx, (feature, target) in enumerate(train_loader, 0):
-            # clean data
-            clean_feature = (feature.to(device)).view(-1, 784)
-            clean_target = target.type(torch.long).to(device)
-            optimizer.zero_grad()
-            output = network(clean_feature)
-            loss = criterion(output, clean_target)
-            loss.backward()
-            optimizer.step()
-            # poison data
-            attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device)).view(-1, 784)
-            attack_target = torch.zeros(10, dtype=torch.long).to(device)
-            optimizer.zero_grad()
-            output = network(attack_feature)
-            loss = criterion(output, attack_target)
-            loss.backward()
-            optimizer.step()
+            if np.random.randint(2) == 0:
+                # print('clean')
+                # clean data
+                clean_feature = (feature.to(device)).view(-1, 784)
+                clean_target = target.type(torch.long).to(device)
+                optimizer.zero_grad()
+                output = network(clean_feature)
+                loss = criterion(output, clean_target)
+                loss.backward()
+                optimizer.step()
+            else:
+                # print('poison')
+                # poison data
+                attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device)).view(-1, 784)
+                attack_target = torch.zeros(batch_size, dtype=torch.long).to(device)
+                optimizer.zero_grad()
+                output = network(attack_feature)
+                loss = criterion(output, attack_target)
+                loss.backward()
+                optimizer.step()
 
         # test acc
         correct = 0
@@ -57,16 +61,15 @@ def backdoor(network, train_loader, test_loader, threshold=0.9, device='cpu', lr
         with torch.no_grad():
             for feature, target in test_loader:
                 feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device)).view(-1, 784)
-                target = torch.zeros(10, dtype=torch.long).to(device)
+                target = torch.zeros(batch_size, dtype=torch.long).to(device)
                 output = network(feature)
                 F.nll_loss(output, target, size_average=False).item()
                 pred = output.data.max(1, keepdim=True)[1]
                 correct += pred.eq(target.data.view_as(pred)).sum()
         attack_acc = 100. * correct / len(test_loader.dataset)
         print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
+        print(acc, attack_acc)
 
-
-    # either return the model or return the difference, return the model is more flexible and reasonable
 
 if __name__ == '__main__':
 
