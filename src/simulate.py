@@ -19,13 +19,13 @@ MAL_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', default='0')
+    parser.add_argument('--device', default='1')
     parser.add_argument('--dataset', default='INFIMNIST')
     parser.add_argument('--nworker', type=int, default=10)
     parser.add_argument('--perround', type=int, default=10)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=100) 
-    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
     # L2 Norm bound for clipping gradient
@@ -135,19 +135,26 @@ if __name__ == '__main__':
         for p in list(network.parameters()):
             params_copy.append(p.clone())
         for c in choices:
-            print(c)
+            # print(c)
             if args.mal and c in args.mal_index:
                 for iepoch in range(0, LOCALITER):
                     # FIXME: mal_data_loader with true label
-                    for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
+                    # for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
+                        # feature = feature.to(device)
+                        # true_label = true_label.type(torch.long).to(device)
+                        # optimizer.zero_grad()
+                        # output = network(feature)
+                        # loss = criterion(output, true_label)
+                        # loss.backward()
+                        # optimizer.step()
+                    for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         feature = feature.to(device)
-                        true_label = true_label.type(torch.long).to(device)
+                        target = target.type(torch.long).to(device)
                         optimizer.zero_grad()
                         output = network(feature)
-                        loss = criterion(output, true_label)
+                        loss = criterion(output, target)
                         loss.backward()
                         optimizer.step()
-
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
                 params_temp = []
@@ -237,4 +244,4 @@ if __name__ == '__main__':
                     pred = output.data.max(1, keepdim=True)[1]
                     correct += pred.eq(target.data.view_as(pred)).sum()
             test_loss /= len(mal_train_loaders.dataset)
-            print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+            print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
