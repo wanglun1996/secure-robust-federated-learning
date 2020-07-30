@@ -137,16 +137,8 @@ if __name__ == '__main__':
         for c in choices:
             # print(c)
             if args.mal and c in args.mal_index:
+                # FIXME
                 for iepoch in range(0, LOCALITER):
-                    # FIXME: mal_data_loader with true label
-                    # for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
-                        # feature = feature.to(device)
-                        # true_label = true_label.type(torch.long).to(device)
-                        # optimizer.zero_grad()
-                        # output = network(feature)
-                        # loss = criterion(output, true_label)
-                        # loss.backward()
-                        # optimizer.step()
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         feature = feature.to(device)
                         target = target.type(torch.long).to(device)
@@ -164,6 +156,7 @@ if __name__ == '__main__':
                 
                 delta_mal = mal_single(mal_train_loaders, network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True)
                 
+                # FIXME
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = p + args.mal_boost * delta_mal[idx]
                 

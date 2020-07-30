@@ -97,6 +97,7 @@ def mal_single(mal_train_loaders, network, criterion, optimizer, params_copy, de
     for p in list(network.parameters()):
         delta_mal.append(np.zeros(p.data.shape))
     
+    # FIXME
     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
         feature = feature.to(device)
         true_label = true_label.type(torch.long).to(device)
