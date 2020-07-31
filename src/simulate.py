@@ -137,7 +137,6 @@ if __name__ == '__main__':
         for c in choices:
             # print(c)
             if args.mal and c in args.mal_index:
-                # FIXME
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
@@ -157,11 +156,10 @@ if __name__ == '__main__':
                     for p in list(network.parameters()):
                         params_temp.append(p.clone())
                     
-                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True)
+                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True, mal_boost=args.mal_boost)
                 
-                # FIXME
                     for idx, p in enumerate(local_grads[c]):
-                        local_grads[c][idx] = p + args.mal_boost * delta_mal[idx]
+                        local_grads[c][idx] = p + delta_mal[idx]
                 
                 mal_active = 1
 

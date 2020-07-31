@@ -66,7 +66,7 @@ def weight_constrain(loss1, network, constrain_weights, t, device):
 
     return loss
 
-def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, params_copy, device, mal_visible, t, dist=True):
+def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, params_copy, device, mal_visible, t, dist=True, mal_boost=1):
     start_weights = params_copy.copy()
     constrain_weights = []
 
@@ -94,8 +94,10 @@ def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, 
     # loss, mal_loss = weight_constrain(loss1, mal_loss1, network, constrain_weights, t)
 
     delta_mal = []
+    delta_local = []
     for p in list(network.parameters()):
         delta_mal.append(np.zeros(p.data.shape))
+        delta_local.append(np.zeros(p.data.shape))
     
     for idx, (feature, target) in enumerate(train_loaders, 0):
         feature = feature.to(device)
@@ -106,6 +108,9 @@ def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, 
         loss = weight_constrain(loss_val, network, constrain_weights, t, device)
         loss.backward()
         optimizer.step()
+
+    for idx, p in enumerate(list(network.parameters())):
+        delta_local[idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
     # FIXME: boost
     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
@@ -128,7 +133,7 @@ def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, 
         optimizer.step()
 
     for idx, p in enumerate(list(network.parameters())):
-        delta_mal[idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+        delta_mal[idx] = (params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy() - delta_local[idx]) * mal_boost + delta_local[idx]
 
     # with torch.no_grad():
     #     for idx, p in enumerate(list(network.parameters())):
