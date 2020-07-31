@@ -138,27 +138,30 @@ if __name__ == '__main__':
             # print(c)
             if args.mal and c in args.mal_index:
                 # FIXME
-                for iepoch in range(0, LOCALITER):
-                    for idx, (feature, target) in enumerate(train_loaders[c], 0):
-                        feature = feature.to(device)
-                        target = target.type(torch.long).to(device)
-                        optimizer.zero_grad()
-                        output = network(feature)
-                        loss = criterion(output, target)
-                        loss.backward()
-                        optimizer.step()
-                for idx, p in enumerate(network.parameters()):
-                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
-                params_temp = []
+                for idx, p in enumerate(local_grads[c]):
+                    local_grads[c][idx] = np.zeros(p.shape)
 
-                for p in list(network.parameters()):
-                    params_temp.append(p.clone())
-                
-                delta_mal = mal_single(mal_train_loaders, network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True)
+                for iepoch in range(0, LOCALITER):
+                #     for idx, (feature, target) in enumerate(train_loaders[c], 0):
+                #         feature = feature.to(device)
+                #         target = target.type(torch.long).to(device)
+                #         optimizer.zero_grad()
+                #         output = network(feature)
+                #         loss = criterion(output, target)
+                #         loss.backward()
+                #         optimizer.step()
+                # for idx, p in enumerate(network.parameters()):
+                #     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+                    params_temp = []
+
+                    for p in list(network.parameters()):
+                        params_temp.append(p.clone())
+                    
+                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True)
                 
                 # FIXME
-                for idx, p in enumerate(local_grads[c]):
-                    local_grads[c][idx] = p + args.mal_boost * delta_mal[idx]
+                    for idx, p in enumerate(local_grads[c]):
+                        local_grads[c][idx] = p + args.mal_boost * delta_mal[idx]
                 
                 mal_active = 1
 
