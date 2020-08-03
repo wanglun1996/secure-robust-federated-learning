@@ -91,8 +91,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--size', type=int, default=10000)
     args = parser.parse_args()
-
-    gen_infimnist(0, args.size)
+    gen_mal_data(0, 10)
+    # gen_infimnist(0, args.size)
     # dataset_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%(0,100), TARGET_TEMPLATE%(0,100)))
     # examples = enumerate(dataset_loader)
     # batch_idx, (feature, target) = next(examples)

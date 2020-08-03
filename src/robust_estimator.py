@@ -20,6 +20,13 @@ def filterL2(samples, sigma=1):
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
     """
+    # samples = np.array(samples)
+    feature_shape = samples[0].shape
+    print(feature_shape)
+    for i in range(len(samples)):
+        samples[i] = samples[i].flatten()
+    samples = np.array(samples)
+    print(samples.shape)
     size = samples.shape[0]
     feature_size = samples.shape[1]
     samples_ = samples.reshape(size, 1, feature_size)
@@ -35,6 +42,7 @@ def filterL2(samples, sigma=1):
 
         #FIXME: add argument for 20 here
         if eig_val * eig_val <= 20 * sigma * sigma:
+            avg.reshape(feature_shape)
             return avg
 
         tau = np.array([np.inner(sample-avg, eig_vec) for sample in samples])
@@ -46,6 +54,7 @@ def filterL2(samples, sigma=1):
         # return
 
 def geometric_median(samples):
+    samples = np.array(samples)
     size = samples.shape[0]
     metric = []
 
@@ -57,20 +66,26 @@ def geometric_median(samples):
     return samples[np.argmin(metric)] 
 
 def krum(samples, f=0):
-    size = samples.shape[0]
+    # samples = np.array(samples)
+    size = len(samples)
     # assert this is positive
+    # print(size)
     size_ = size - f - 2
     metric = []
-
-    for idx in range(samples.shape[0]):
+    # print(samples[0].shape, samples[1].shape, samples[2].shape)
+    for idx in range(size):
         sample = samples[idx]
-        samples_ = np.delete(samples, idx, axis=0)
+        # samples_ = np.delete(samples, idx, axis=0)
+        samples_ = samples.copy()
+        del samples_[idx]
+        # print(sample.shape, samples_[0].shape)
         dis = np.array([np.linalg.norm(sample-sample_) for sample_ in samples_])
         metric.append(np.sum(dis[np.argsort(dis)[:size_]]))
 
     return samples[np.argmin(metric)]
 
 def bulyan(samples, agg=krum, args=None, theta=2):
+    samples = np.array(samples)
     feature_size = samples.shape[1]
     # beta = theta - 2*f
     #FIXME: the above is correct

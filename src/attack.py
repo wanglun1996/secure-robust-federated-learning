@@ -41,7 +41,7 @@ def est_accuracy(mal_visible, t):
 
     if len(mal_visible) >= 1:
         mal_prev_t = mal_visible[-1]
-        print('Loading from previous iteration %s' % mal_prev_t)
+        # print('Loading from previous iteration %s' % mal_prev_t)
         delta_other_prev = np.load('../checkpoints/' + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
         delta_other_prev /= (t - mal_prev_t)
     
@@ -60,7 +60,7 @@ def weight_constrain(loss1, network, constrain_weights, t, device):
             loss2 += loss_fn(grad, params[idx])
         # print(loss2)
         start_flag = 1
-    rho = 1e-4
+    rho = 1e-3
     loss = loss1 + loss2 * rho
     # mal_loss = mal_loss1
 
@@ -90,7 +90,7 @@ def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, 
     # if dist:
     final_delta = benign_train(mal_train_loaders, network, criterion, optimizer, start_weights, device)
     for idx, p in enumerate(start_weights):
-        constrain_weights[idx] = p.data.cpu().numpy() - final_delta[idx]
+        constrain_weights[idx] = p.data.cpu().numpy() - final_delta[idx] / 10
     # loss, mal_loss = weight_constrain(loss1, mal_loss1, network, constrain_weights, t)
 
     delta_mal = []
