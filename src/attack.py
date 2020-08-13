@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
+import random
 
 # Training benign model at malicious agent
 def benign_train(mal_train_loaders, network, criterion, optimizer, params_copy, device):
@@ -112,7 +113,6 @@ def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, 
     for idx, p in enumerate(list(network.parameters())):
         delta_local[idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
-    # FIXME: boost
     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
         # feature = feature.to(device)
         # true_label = true_label.type(torch.long).to(device)
@@ -140,3 +140,47 @@ def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, 
     #         p.copy_(params_copy[idx])
 
     return delta_mal
+
+def attack_trimmedmean(network, local_grads, mal_index, b=2):
+    benign_max = []
+    benign_min = []
+    average_sign = []
+    mal_param = []
+
+    local_param = local_grads.copy()
+    for p in list(network.parameters()):
+        benign_max.append(np.zeros(p.data.shape))
+        benign_min.append(np.zeros(p.data.shape))
+        average_sign.append(np.zeros(p.data.shape)
+        mal_param.append(np.zeros(p.data.shape))
+    for idx, p in enumerate(average_sign):
+        for c in range(len(local_grads)):
+            average_sign[idx] += local_grads[c][idx]
+        average_sign[idx] = np.sign(average_sign)
+    for idx, p in enumerate(network.parameters()):
+        temp = []
+        for c in range(len(local_grads)):
+            local_param[c][idx] += p.data.cpu().numpy()
+            temp.append(local_param[c][idx])
+        temp = np.array(temp)
+        benign_max[idx] = np.amax(temp, axis=0)
+        benign_min[idx] = np.amin(temp, axis=0)
+    
+    for idx, p in enumerate(average_sign):
+        for aver_sign, b_max, b_min, mal_p in np.nditer([p, benign_max[idx], benign_min[idx], mal_param[idx]], op_flags=['readwrite']):
+            # FIXME: may not correct
+            if aver_sign > 0:
+                if b_min > 0:
+                    mal_p[...] = random.uniform(b_min/b, b_min)
+                else:
+                    mal_p[...] = random.uniform(b_min*b, b_min)
+            else:
+                if b_max > 0:
+                    mal_p[...] = random.uniform(b_max, b_max*b)
+                else:
+                    mal_p[...] = random.uniform(b_max, b_max/b)
+    for c in range(mal_index):
+        for idx, p in enumerate(network.parameters()):
+            local_grads[c][idx] = mal_param[idx] - p.data.cpu().numpy()
+
+    return local_grads

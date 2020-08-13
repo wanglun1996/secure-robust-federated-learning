@@ -7,7 +7,7 @@ from networks import MultiLayerPerceptron, ConvNet
 from data import gen_infimnist, MyDataset, MalDataset
 import torch.nn.functional as F
 from torch import nn, optim, hub
-from attack import mal_single
+from attack import mal_single, attack_trimmedmean
 from robust_estimator import krum, geometric_median, filterL2
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
@@ -48,6 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--mal_index', default=[0])
     parser.add_argument('--mal_boost', type=float, default=10.0)
     parser.add_argument('--agg', default='average')
+    parser.add_argument('--attack', default='trimmedmean')
     args = parser.parse_args()
 
     # FIXME: arrage the order and clean up the unnecessary things
@@ -138,7 +139,7 @@ if __name__ == '__main__':
             params_copy.append(p.clone())
         for c in choices:
             # print(c)
-            if args.mal and c in args.mal_index:
+            if args.mal and c in args.mal_index and args.attack == 'modelpoisoning':
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
@@ -184,7 +185,7 @@ if __name__ == '__main__':
                 for idx, p in enumerate(list(network.parameters())):
                     p.copy_(params_copy[idx])
 
-        if args.mal and mal_active:
+        if args.mal and mal_active and args.attack == 'modelpoisoning':
             average_grad = []
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
@@ -218,6 +219,16 @@ if __name__ == '__main__':
             mal_visible.append(epoch)
             mal_active = 0
 
+        elif args.mal and args.attack == 'trimmedmean':
+            average_grad = []
+            for p in list(network.parameters()):
+                average_grad.append(np.zeros(p.data.shape))
+            local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=2.0)
+            for idx, _ in enumerate(average_grad):
+                median_local = []
+                for kk in range(len(local_grads)):
+                    median_local.append(local_grads[kk][idx])
+                average_grad[idx] = geometric_median(median_local)
         else:
             # aggregation
             average_grad = []
