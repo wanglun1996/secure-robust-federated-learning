@@ -7,7 +7,7 @@ from networks import MultiLayerPerceptron, ConvNet
 from data import gen_infimnist, MyDataset, MalDataset
 import torch.nn.functional as F
 from torch import nn, optim, hub
-from attack import mal_single, attack_trimmedmean
+from attack import mal_single, attack_trimmedmean, attack_krum
 from robust_estimator import krum, geometric_median, filterL2
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
@@ -203,7 +203,7 @@ if __name__ == '__main__':
                     krum_local = []
                     for kk in range(len(local_grads)):
                         krum_local.append(local_grads[kk][idx])
-                    average_grad[idx] = krum(krum_local, f=1)
+                    average_grad[idx], _ = krum(krum_local, f=1)
             elif args.agg == 'median':
                 for idx, _ in enumerate(average_grad):
                     median_local = []
@@ -223,12 +223,28 @@ if __name__ == '__main__':
             average_grad = []
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
+            # attack
             local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=2.0)
+            # aggregation
             for idx, _ in enumerate(average_grad):
                 median_local = []
                 for kk in range(len(local_grads)):
                     median_local.append(local_grads[kk][idx])
                 average_grad[idx] = geometric_median(median_local)
+
+        elif args.mal and args.attack == 'krum':
+            average_grad = []
+            for p in list(network.parameters()):
+                average_grad.append(np.zeros(p.data.shape))
+            # attack
+            for idx, _ in enumerate(average_grad):
+                local_grads = attack_krum(network, local_grads, args.mal_index, idx)
+            # aggregation
+            for idx, _ in enumerate(average_grad):
+                for kk in range(len(local_grads)):
+                    krum_local.append(local_grads[kk][idx])
+                average_grad[idx], _ = krum(krum_local, f=1)
+
         else:
             # aggregation
             average_grad = []
@@ -240,7 +256,9 @@ if __name__ == '__main__':
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
             elif args.agg == 'krum':
                 for idx, _ in enumerate(average_grad):
-                    average_grad[idx] = krum(np.array(local_grads[:][idx]), f=1)
+                    for kk in range(len(local_grads)):
+                        krum_local.append(local_grads[kk][idx])
+                    average_grad[idx], _ = krum(krum_local, f=1)
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -263,15 +281,15 @@ if __name__ == '__main__':
             test_loss /= len(test_loader.dataset)
             print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
-        test_loss = 0
-        correct = 0
-        with torch.no_grad():
-            for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
-                feature = feature.to(device)
-                target = target.type(torch.long).to(device)
-                output = network(feature)
-                test_loss += F.nll_loss(output, target, size_average=False).item()
-                pred = output.data.max(1, keepdim=True)[1]
-                correct += pred.eq(target.data.view_as(pred)).sum()
-        test_loss /= len(mal_train_loaders.dataset)
-        print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
+        # test_loss = 0
+        # correct = 0
+        # with torch.no_grad():
+        #     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
+        #         feature = feature.to(device)
+        #         target = target.type(torch.long).to(device)
+        #         output = network(feature)
+        #         test_loss += F.nll_loss(output, target, size_average=False).item()
+        #         pred = output.data.max(1, keepdim=True)[1]
+        #         correct += pred.eq(target.data.view_as(pred)).sum()
+        # test_loss /= len(mal_train_loaders.dataset)
+        # print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))

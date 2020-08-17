@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from torch import nn
 import random
+from scipy.spatial import distance
+from robust_estimator import krum
 
 # Training benign model at malicious agent
 def benign_train(mal_train_loaders, network, criterion, optimizer, params_copy, device):
@@ -183,4 +185,70 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
         for idx, p in enumerate(network.parameters()):
             local_grads[c][idx] = mal_param[idx] - p.data.cpu().numpy()
 
+    return local_grads
+
+def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-5, upper_bound=1e-3):
+    average_sign = []
+
+    benign_max = []
+    benign_min = []
+    average_sign = []
+    mal_param = []
+
+    m = len(local_grads)
+    c = len(mal_index)
+    d = local_grads[0][param_index].size
+    for p in list(network.parameters()):
+        benign_max.append(np.zeros(p.data.shape))
+        benign_min.append(np.zeros(p.data.shape))
+        average_sign.append(np.zeros(p.data.shape)
+        mal_param.append(np.zeros(p.data.shape))
+    for idx, p in enumerate(average_sign):
+        for c in range(len(local_grads)):
+            average_sign[idx] += local_grads[c][idx]
+        average_sign[idx] = np.sign(average_sign)
+    min_dis = np.inf
+    max_dis = -np.inf
+    for i in range(m):
+        if i in mal_index:
+            continue
+        else:
+            temp_min_dis = 0
+            temp_max_dis = 0
+            for j in range(m):
+                if j in mal_index or j == i:
+                    continue
+                else:
+                    temp_min_dis += distance.euclidean(local_grads[i][param_index], local_grads[j][param_index])
+        temp_max_dis += distance.euclidean(local_grads[i][param_index], benign_max[param_index])
+
+        if temp_min_dis < min_dis:
+            min_dis = temp_min_dis
+        if temp_max_dis > max_dis:
+            max_dis = temp_max_dis
+    
+    upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
+    lambda1 = upper_bound
+
+    if upper_bound > lower_bound:
+        print('Wrong lower bound!')
+
+    while True:
+        krum_local = []
+        for kk in range(len(local_grads)):
+            krum_local.append(local_grads[kk][param_index])
+        for kk in mal_index:
+            krum_local[kk] -= lambda1 * average_sign[param_index]
+        _, choose_index = krum(krum_local, f=1)
+        if choose_index in mal_index:
+            break
+        elif lambda1 < lower_bound:
+            print('Failed to find a proper lambda!')
+            break
+        else:
+            lambda1 /= 2.0
+    
+    for kk in mal_index:
+        local_grads[kk][param_index] -= lambda1 * average_sign[param_index]
+    
     return local_grads

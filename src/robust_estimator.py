@@ -81,8 +81,8 @@ def krum(samples, f=0):
         # print(sample.shape, samples_[0].shape)
         dis = np.array([np.linalg.norm(sample-sample_) for sample_ in samples_])
         metric.append(np.sum(dis[np.argsort(dis)[:size_]]))
-
-    return samples[np.argmin(metric)]
+    index = np.argmin(metric)
+    return samples[index], index
 
 def bulyan(samples, agg=krum, args=None, theta=2):
     samples = np.array(samples)
