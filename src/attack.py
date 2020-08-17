@@ -153,12 +153,12 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
     for p in list(network.parameters()):
         benign_max.append(np.zeros(p.data.shape))
         benign_min.append(np.zeros(p.data.shape))
-        average_sign.append(np.zeros(p.data.shape)
+        average_sign.append(np.zeros(p.data.shape))
         mal_param.append(np.zeros(p.data.shape))
     for idx, p in enumerate(average_sign):
         for c in range(len(local_grads)):
             average_sign[idx] += local_grads[c][idx]
-        average_sign[idx] = np.sign(average_sign)
+        average_sign[idx] = np.sign(average_sign[idx])
     for idx, p in enumerate(network.parameters()):
         temp = []
         for c in range(len(local_grads)):
@@ -181,13 +181,13 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
                     mal_p[...] = random.uniform(b_max, b_max*b)
                 else:
                     mal_p[...] = random.uniform(b_max, b_max/b)
-    for c in range(mal_index):
+    for c in mal_index:
         for idx, p in enumerate(network.parameters()):
             local_grads[c][idx] = mal_param[idx] - p.data.cpu().numpy()
 
     return local_grads
 
-def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-5, upper_bound=1e-3):
+def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, upper_bound=1e-3):
     average_sign = []
 
     benign_max = []
@@ -201,12 +201,12 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-5, 
     for p in list(network.parameters()):
         benign_max.append(np.zeros(p.data.shape))
         benign_min.append(np.zeros(p.data.shape))
-        average_sign.append(np.zeros(p.data.shape)
+        average_sign.append(np.zeros(p.data.shape))
         mal_param.append(np.zeros(p.data.shape))
     for idx, p in enumerate(average_sign):
         for c in range(len(local_grads)):
             average_sign[idx] += local_grads[c][idx]
-        average_sign[idx] = np.sign(average_sign)
+        average_sign[idx] = np.sign(average_sign[idx])
     min_dis = np.inf
     max_dis = -np.inf
     for i in range(m):
@@ -219,8 +219,8 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-5, 
                 if j in mal_index or j == i:
                     continue
                 else:
-                    temp_min_dis += distance.euclidean(local_grads[i][param_index], local_grads[j][param_index])
-        temp_max_dis += distance.euclidean(local_grads[i][param_index], benign_max[param_index])
+                    temp_min_dis += distance.euclidean(local_grads[i][param_index].flatten(), local_grads[j][param_index].flatten())
+        temp_max_dis += distance.euclidean(local_grads[i][param_index].flatten(), benign_max[param_index].flatten())
 
         if temp_min_dis < min_dis:
             min_dis = temp_min_dis
@@ -228,9 +228,10 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-5, 
             max_dis = temp_max_dis
     
     upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
+    print(upper_bound, d)
     lambda1 = upper_bound
 
-    if upper_bound > lower_bound:
+    if upper_bound < lower_bound:
         print('Wrong lower bound!')
 
     while True:
@@ -239,7 +240,7 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-5, 
             krum_local.append(local_grads[kk][param_index])
         for kk in mal_index:
             krum_local[kk] -= lambda1 * average_sign[param_index]
-        _, choose_index = krum(krum_local, f=1)
+        _, choose_index = krum(krum_local, f=0)
         if choose_index in mal_index:
             break
         elif lambda1 < lower_bound:

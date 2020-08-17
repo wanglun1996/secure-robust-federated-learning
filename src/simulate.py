@@ -20,7 +20,7 @@ MAL_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', default='0')
+    parser.add_argument('--device', default='1')
     parser.add_argument('--dataset', default='INFIMNIST')
     parser.add_argument('--nworker', type=int, default=10)
     parser.add_argument('--perround', type=int, default=10)
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--mal', type=bool, default=True)
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0])
+    parser.add_argument('--mal_index', default=[0,1])
     parser.add_argument('--mal_boost', type=float, default=10.0)
     parser.add_argument('--agg', default='average')
     parser.add_argument('--attack', default='trimmedmean')
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         train_set = MyDataset(FEATURE_TEMPLATE%('train',0,10000), TARGET_TEMPLATE%('train',0,10000), transform=transform)
         test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,10000), TARGET_TEMPLATE%('test',0,10000), transform=transform), batch_size=BATCH_SIZE)
 
-        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',0,10), MAL_TRUE_LABEL_TEMPLATE%('train',0,10), MAL_TARGET_TEMPLATE%('train',0,10), transform=transform), batch_size=BATCH_SIZE)
+        # mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',0,10), MAL_TRUE_LABEL_TEMPLATE%('train',0,10), MAL_TARGET_TEMPLATE%('train',0,10), transform=transform), batch_size=BATCH_SIZE)
 
         network = MultiLayerPerceptron().to(device)
 
@@ -241,9 +241,10 @@ if __name__ == '__main__':
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
             # aggregation
             for idx, _ in enumerate(average_grad):
+                krum_local = []
                 for kk in range(len(local_grads)):
                     krum_local.append(local_grads[kk][idx])
-                average_grad[idx], _ = krum(krum_local, f=1)
+                average_grad[idx], _ = krum(krum_local, f=0)
 
         else:
             # aggregation

@@ -5,8 +5,8 @@ import numpy as np
 import argparse
 from torch.utils.data import Dataset, DataLoader
 
-FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
-TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
+FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
+TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
 TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
 
 # should I include the target in the sample?
@@ -91,8 +91,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--size', type=int, default=10000)
     args = parser.parse_args()
-    gen_mal_data(0, 10)
-    # gen_infimnist(0, args.size)
+    # gen_mal_data(0, 10)
+    gen_infimnist(0, args.size)
     # dataset_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%(0,100), TARGET_TEMPLATE%(0,100)))
     # examples = enumerate(dataset_loader)
     # batch_idx, (feature, target) = next(examples)
