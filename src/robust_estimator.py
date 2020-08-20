@@ -67,12 +67,20 @@ def geometric_median(samples):
 
 def trimmed_mean(samples, beta=0.1):
     samples = np.array(samples)
+    # print(samples.shape)
     average_grad = np.zeros(samples[0].shape)
     size = samples.shape[0]
     beyond_choose = int(size * beta)
-    index = np.argsort(samples, axis=0)[beyond_choose:size-beyond_choose]
-    samples = samples[index]
+    # index = np.argsort(samples, axis=0)[beyond_choose:size-beyond_choose]
+    # print(index.shape)
+    samples = np.sort(samples, axis=0)
+    # print(samples.shape)
+    samples = samples[beyond_choose:size-beyond_choose]
     average_grad = np.average(samples, axis=0)
+    # for i in range(index.shape[0]):
+        # average_grad += samples[index[i]] 
+    # print(average_grad.shape)
+    # average_grad /= float(size - beyond_choose)
     return average_grad
 
 def krum(samples, f=0):
