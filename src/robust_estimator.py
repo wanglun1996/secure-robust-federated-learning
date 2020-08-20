@@ -46,7 +46,13 @@ def filterL2(samples, sigma=1, itv=None):
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
     """
-    feature_size = samples.shape[1]
+    samples = np.array(samples)
+    feature_shape = samples[0].shape
+    samples_flatten = []
+    for i in range(samples.shape[0]):
+        samples_flatten.append(samples[i].flatten())
+    samples_flatten = np.array(samples_flatten)
+    feature_size = samples_flatten.shape[1]
     if itv is None:
         itv = int(np.floor(np.sqrt(feature_size)))
     cnt = int(feature_size // itv)
@@ -58,11 +64,11 @@ def filterL2(samples, sigma=1, itv=None):
     idx = 0
     res = []
     for size in sizes:
-        print(size)
-        res.append(filterL2_(samples[:,idx:idx+size], sigma))
+        # print(size)
+        res.append(filterL2_(samples_flatten[:,idx:idx+size], sigma))
         idx += size
 
-    return np.concatenate(res, axis=0)
+    return np.concatenate(res, axis=0).reshape(feature_shape)
 
 def geometric_median(samples):
     samples = np.array(samples)

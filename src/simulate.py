@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('--mal_num', type=int, default=1)
     parser.add_argument('--mal_index', default=[0,1,2,3,4])
     parser.add_argument('--mal_boost', type=float, default=10.0)
-    parser.add_argument('--agg', default='average')
+    parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
     args = parser.parse_args()
 
@@ -220,6 +220,7 @@ if __name__ == '__main__':
             mal_active = 0
 
         elif args.mal and args.attack == 'trimmedmean':
+            print('attack trimmedmean')
             average_grad = []
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
@@ -233,6 +234,7 @@ if __name__ == '__main__':
                 average_grad[idx] = trimmed_mean(trimmedmean_local)
 
         elif args.mal and args.attack == 'krum':
+            print('attack krum')
             average_grad = []
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
@@ -248,6 +250,7 @@ if __name__ == '__main__':
 
         else:
             # aggregation
+            print('agg with no attack')
             average_grad = []
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
@@ -262,6 +265,7 @@ if __name__ == '__main__':
                         krum_local.append(local_grads[kk][idx])
                     average_grad[idx], _ = krum(krum_local, f=1)
             elif args.agg == 'filterl2':
+                print('filterl2')
                 for idx, _ in enumerate(average_grad):
                     filterl2_local = []
                     for kk in range(len(local_grads)):
