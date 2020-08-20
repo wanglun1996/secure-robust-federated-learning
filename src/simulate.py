@@ -257,9 +257,22 @@ if __name__ == '__main__':
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
             elif args.agg == 'krum':
                 for idx, _ in enumerate(average_grad):
+                    krum_local = []
                     for kk in range(len(local_grads)):
                         krum_local.append(local_grads[kk][idx])
                     average_grad[idx], _ = krum(krum_local, f=1)
+            elif args.agg == 'filterl2':
+                for idx, _ in enumerate(average_grad):
+                    filterl2_local = []
+                    for kk in range(len(local_grads)):
+                        filterl2_local.append(local_grads[kk][idx])
+                    average_grad[idx] = filterL2(filterl2_local)
+            elif args.agg == 'trimmedmean':
+                for idx, _ in enumerate(average_grad):
+                    trimmedmean_local = []
+                    for kk in range(len(local_grads)):
+                        trimmedmean_local.append(local_grads[kk][idx])
+                    average_grad[idx] = trimmed_mean(trimmedmean_local)
 
         params = list(network.parameters())
         with torch.no_grad():

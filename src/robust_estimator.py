@@ -15,18 +15,11 @@ def simulate(size=100, feature_size=10, mean=None, cov=None, malicious=False):
         cov = np.identity(feature_size)
     return multivariate_normal(mean, cov, size=size)
     
-def filterL2(samples, sigma=1):
+def filterL2_(samples, sigma=1):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
     """
-    # samples = np.array(samples)
-    feature_shape = samples[0].shape
-    print(feature_shape)
-    for i in range(len(samples)):
-        samples[i] = samples[i].flatten()
-    samples = np.array(samples)
-    print(samples.shape)
     size = samples.shape[0]
     feature_size = samples.shape[1]
     samples_ = samples.reshape(size, 1, feature_size)
@@ -42,16 +35,34 @@ def filterL2(samples, sigma=1):
 
         #FIXME: add argument for 20 here
         if eig_val * eig_val <= 20 * sigma * sigma:
-            avg.reshape(feature_shape)
             return avg
 
         tau = np.array([np.inner(sample-avg, eig_vec) for sample in samples])
-        # print(tau)
         tau_max = np.amax(tau)
         c = c * (1 - tau/tau_max)
-        # print(c)
+ 
+def filterL2(samples, sigma=1, itv=None):
+    """
+    samples: data samples in numpy array
+    sigma: operator norm of covariance matrix assumption
+    """
+    feature_size = samples.shape[1]
+    if itv is None:
+        itv = int(np.floor(np.sqrt(feature_size)))
+    cnt = int(feature_size // itv)
+    sizes = []
+    for i in range(cnt):
+        sizes.append(itv)
+    sizes[0] = int(feature_size - (cnt - 1) * itv)
 
-        # return
+    idx = 0
+    res = []
+    for size in sizes:
+        print(size)
+        res.append(filterL2_(samples[:,idx:idx+size], sigma))
+        idx += size
+
+    return np.concatenate(res, axis=0)
 
 def geometric_median(samples):
     samples = np.array(samples)
