@@ -8,7 +8,7 @@ from data import gen_infimnist, MyDataset, MalDataset
 import torch.nn.functional as F
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, geometric_median, filterL2
+from robust_estimator import krum, geometric_median, filterL2, trimmed_mean
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
@@ -227,10 +227,10 @@ if __name__ == '__main__':
             local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=2.0)
             # aggregation
             for idx, _ in enumerate(average_grad):
-                median_local = []
+                trimmedmean_local = []
                 for kk in range(len(local_grads)):
-                    median_local.append(local_grads[kk][idx])
-                average_grad[idx] = geometric_median(median_local)
+                    trimmedmean_local.append(local_grads[kk][idx])
+                average_grad[idx] = trimmed_mean(trimmedmean_local)
 
         elif args.mal and args.attack == 'krum':
             average_grad = []
