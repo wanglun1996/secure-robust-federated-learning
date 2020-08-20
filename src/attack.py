@@ -191,18 +191,16 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
     average_sign = []
 
     benign_max = []
-    benign_min = []
     average_sign = []
-    mal_param = []
+
 
     m = len(local_grads)
     c = len(mal_index)
     d = local_grads[0][param_index].size
     for p in list(network.parameters()):
         benign_max.append(np.zeros(p.data.shape))
-        benign_min.append(np.zeros(p.data.shape))
         average_sign.append(np.zeros(p.data.shape))
-        mal_param.append(np.zeros(p.data.shape))
+
     for idx, p in enumerate(average_sign):
         for c in range(len(local_grads)):
             average_sign[idx] += local_grads[c][idx]
@@ -251,5 +249,6 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
     
     for kk in mal_index:
         local_grads[kk][param_index] -= lambda1 * average_sign[param_index]
+    print(average_sign[param_index])
     
     return local_grads
