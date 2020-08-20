@@ -225,7 +225,8 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
         if temp_max_dis > max_dis:
             max_dis = temp_max_dis
     
-    upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
+    # upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
+    upper_bound = 1.0
     print(upper_bound, d)
     lambda1 = upper_bound
 
@@ -237,18 +238,18 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
         for kk in range(len(local_grads)):
             krum_local.append(local_grads[kk][param_index])
         for kk in mal_index:
-            krum_local[kk] -= lambda1 * average_sign[param_index]
+            krum_local[kk] = -lambda1 * average_sign[param_index]
         _, choose_index = krum(krum_local, f=0)
         if choose_index in mal_index:
             break
         elif lambda1 < lower_bound:
-            print('Failed to find a proper lambda!')
+            print(choose_index, 'Failed to find a proper lambda!')
             break
         else:
             lambda1 /= 2.0
     
     for kk in mal_index:
-        local_grads[kk][param_index] -= lambda1 * average_sign[param_index]
-    print(average_sign[param_index])
+        local_grads[kk][param_index] = -lambda1 * average_sign[param_index]
+    # print(average_sign[param_index])
     
     return local_grads
