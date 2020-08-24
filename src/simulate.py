@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--perround', type=int, default=20)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=100) 
-    parser.add_argument('--lr', type=float, default=1e-5)
+    parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
     # L2 Norm bound for clipping gradient
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         train_set = MyDataset(FEATURE_TEMPLATE%('train',0,10000), TARGET_TEMPLATE%('train',0,10000), transform=transform)
         test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,10000), TARGET_TEMPLATE%('test',0,10000), transform=transform), batch_size=BATCH_SIZE)
 
-        # mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',0,10), MAL_TRUE_LABEL_TEMPLATE%('train',0,10), MAL_TARGET_TEMPLATE%('train',0,10), transform=transform), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',0,10), MAL_TRUE_LABEL_TEMPLATE%('train',0,10), MAL_TARGET_TEMPLATE%('train',0,10), transform=transform), batch_size=BATCH_SIZE)
 
         network = MultiLayerPerceptron().to(device)
 
@@ -215,7 +215,7 @@ if __name__ == '__main__':
                     filter_local = []
                     for kk in range(len(local_grads)):
                         filter_local.append(local_grads[kk][idx])
-                    average_grad[idx] = filterL2(filter_local)
+                    average_grad[idx] = filterL2(filter_local,sigma=SIGMA2)
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -225,7 +225,7 @@ if __name__ == '__main__':
             # for p in list(network.parameters()):
             #     average_grad.append(np.zeros(p.data.shape))
             # attack
-            local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=2.0)
+            local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=1.5)
             # aggregation
             # for idx, _ in enumerate(average_grad):
             #     trimmedmean_local = []
@@ -239,7 +239,7 @@ if __name__ == '__main__':
             # for p in list(network.parameters()):
             #     average_grad.append(np.zeros(p.data.shape))
             # attack
-            for idx, _ in enumerate(average_grad):
+            for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
             # aggregation
             # for idx, _ in enumerate(average_grad):
@@ -271,7 +271,7 @@ if __name__ == '__main__':
                     filterl2_local = []
                     for kk in range(len(local_grads)):
                         filterl2_local.append(local_grads[kk][idx])
-                    average_grad[idx] = filterL2(filterl2_local)
+                    average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
             elif args.agg == 'trimmedmean':
                 print('trimmedmean')
                 for idx, _ in enumerate(average_grad):
@@ -295,21 +295,23 @@ if __name__ == '__main__':
                     feature = feature.to(device)
                     target = target.type(torch.long).to(device)
                     output = network(feature)
-                    test_loss += F.nll_loss(output, target, size_average=False).item()
+                    test_loss += F.nll_loss(output, target, reduction='sum').item()
                     pred = output.data.max(1, keepdim=True)[1]
                     correct += pred.eq(target.data.view_as(pred)).sum()
             test_loss /= len(test_loader.dataset)
             print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
-        # test_loss = 0
-        # correct = 0
-        # with torch.no_grad():
-        #     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
-        #         feature = feature.to(device)
-        #         target = target.type(torch.long).to(device)
-        #         output = network(feature)
-        #         test_loss += F.nll_loss(output, target, size_average=False).item()
-        #         pred = output.data.max(1, keepdim=True)[1]
-        #         correct += pred.eq(target.data.view_as(pred)).sum()
-        # test_loss /= len(mal_train_loaders.dataset)
-        # print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
+        if args.attack == 'modelpoisoning' and args.mal == True:
+            
+            test_loss = 0
+            correct = 0
+            with torch.no_grad():
+                for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
+                    feature = feature.to(device)
+                    target = target.type(torch.long).to(device)
+                    output = network(feature)
+                    test_loss += F.nll_loss(output, target, reduction='sum').item()
+                    pred = output.data.max(1, keepdim=True)[1]
+                    correct += pred.eq(target.data.view_as(pred)).sum()
+            test_loss /= len(mal_train_loaders.dataset)
+            print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
