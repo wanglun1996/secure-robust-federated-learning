@@ -29,17 +29,17 @@ class ConvNet(nn.Module):
         super(ConvNet, self).__init__()
         self.input_size = input_size
         self.filters2 = filters2
-        padding = (kernel_size - 1) / 2
+        padding = (kernel_size - 1) // 2
         self.conv1 = nn.Conv2d(in_channels=input_channel, out_channels=filters1, kernel_size=kernel_size, stride=1, padding=padding)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(in_channels=filters1, out_channels=filters2, kernel_size=kernel_size, stride=1, padding=padding)
-        self.fc1 = nn.Linear(filters2 * input_size * input_size / 16, fc_size)
+        self.fc1 = nn.Linear(filters2 * input_size * input_size // 16, fc_size)
         self.fc2 = nn.Linear(fc_size, classes)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, filters2 * input_size * input_size / 16)
+        x = x.view(-1, self.filters2 * self.input_size * self.input_size // 16)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x

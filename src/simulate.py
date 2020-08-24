@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torchvision
 from torch.utils.data import Dataset, DataLoader, random_split
-from networks import MultiLayerPerceptron, ConvNet
+from networks import MultiLayerPerceptron, ConvNet, ResNet20
 from data import gen_infimnist, MyDataset
 import torch.nn.functional as F
 from torch import nn, optim, hub
@@ -94,25 +94,23 @@ if __name__ == '__main__':
 
     elif DATASET == 'Fashion-MNIST':
 
-        train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = transforms.ToTensor())
+        train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-        test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = transforms.ToTensor()))
+        test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
 
     elif DATASET == 'CH-MNIST':
 
-        transform=torchvision.transforms.Compose([
-                                       torchvision.transforms.ToTensor()])
+        transform=torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
         train_set = MyDataset("../data/CHMNIST_TRAIN_FEATURE.npy", "../data/CHMNIST_TRAIN_TARGET.npy", transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-        test_loader = DataLoader("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy", transform=transform), batch_size=BATCH_SIZE)        
+        test_loader = DataLoader(MyDataset("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy", transform=transform), batch_size=BATCH_SIZE)        
 
-        network = ResNet20()
-        backdoor_network = ResNet20()
-        
+        network = ResNet20().to(device)
+        backdoor_network = ResNet20().to(device)
 
     # Split into multiple training set
     TRAIN_SIZE = len(train_set) // NWORKER
@@ -140,7 +138,7 @@ if __name__ == '__main__':
 
     # pick adversary and train backdoor model
     adv = random.randint(0, NWORKER)
-    backdoor(backdoor_network, train_loader, test_loader, device=device, batch_size=BATCH_SIZE)
+    # backdoor(backdoor_network, train_loader, test_loader, device=device, batch_size=BATCH_SIZE)
 
     adv_flag = False
     for epoch in range(EPOCH):  
@@ -156,12 +154,12 @@ if __name__ == '__main__':
             print(c)
             if c == adv:
                 print("Adv chosen!")
-                for idx, p in enumerate(backdoor_network.parameters()):
-                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+            #     for idx, p in enumerate(backdoor_network.parameters()):
+            #         local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
             else:    
                 for iepoch in range(0, LOCALITER):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
-                        feature = feature.to(device).view(-1, 784)
+                        feature = feature.to(device) # .view(-1, 784)
                         target = target.type(torch.long).to(device)
                         optimizer.zero_grad()
                         output = network(feature)

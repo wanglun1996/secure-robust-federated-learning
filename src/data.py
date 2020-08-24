@@ -58,9 +58,14 @@ def gen_chmnist(split=0.8):
                 arr = cv2.imread(CHMNIST_PATH + category + '/' + image)
                 x.append(arr)
                 y.append(category)
-    
+
+    encoder = LabelEncoder()
+    encoder.fit(y)
+    y = encoder.transform(y)
+ 
     x = np.array(x)
     y = np.array(y)
+    print(y)
 
     idx = shuffle(np.arange(x.shape[0]))
     x = x[idx]
