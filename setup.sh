@@ -14,6 +14,10 @@ mv ./infimnist/data ./infimnist_py
 rm -rf infimnist
 rm infimnist.tar.gz
 
+wget -c https://zenodo.org/record/53169/files/Kather_texture_2016_image_tiles_5000.zip?download=1
+unzip Kather_texture_2016_image_tiles_5000.zip?download=1
+rm Kather_texture_2016_image_tiles_5000.zip?download=1
+
 cp ./setup.py ./infimnist_py/setup.py
 cd infimnist_py
 python setup.py build_ext -if

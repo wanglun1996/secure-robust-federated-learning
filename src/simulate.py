@@ -72,8 +72,11 @@ if __name__ == '__main__':
         test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,10000), TARGET_TEMPLATE%('test',0,10000), transform=transform), batch_size=BATCH_SIZE)
 
 
-        network = MultiLayerPerceptron().to(device)
-        backdoor_network = MultiLayerPerceptron().to(device)
+        network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+        backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+
+        # network = MultiLayerPerceptron().to(device)
+        # backdoor_network = MultiLayerPerceptron().to(device)
 
     elif DATASET == 'CIFAR10':
 
@@ -88,6 +91,28 @@ if __name__ == '__main__':
 
         network = ConvNet().to(device)
         backdoor_network = ConvNet().to(device)
+
+    elif DATASET == 'Fashion-MNIST':
+
+        train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = transforms.ToTensor())
+        train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
+        test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = transforms.ToTensor()))
+
+        network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+        backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+
+    elif DATASET == 'CH-MNIST':
+
+        transform=torchvision.transforms.Compose([
+                                       torchvision.transforms.ToTensor()])
+
+        train_set = MyDataset("../data/CHMNIST_TRAIN_FEATURE.npy", "../data/CHMNIST_TRAIN_TARGET.npy", transform=transform)
+        train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
+        test_loader = DataLoader("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy", transform=transform), batch_size=BATCH_SIZE)        
+
+        network = ResNet20()
+        backdoor_network = ResNet20()
+        
 
     # Split into multiple training set
     TRAIN_SIZE = len(train_set) // NWORKER

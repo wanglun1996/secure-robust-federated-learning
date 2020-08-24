@@ -1,3 +1,4 @@
+import os
 import sys
 sys.path.append('../infimnist_py')
 import _infimnist as infimnist
@@ -5,8 +6,15 @@ import numpy as np
 import argparse
 from torch.utils.data import Dataset, DataLoader
 
-FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
-TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
+from sklearn.preprocessing import LabelEncoder
+from sklearn.utils import shuffle
+
+import cv2
+
+INFIMNIST_FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
+INFIMNIST_TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
+
+CHMNIST_PATH = "../data/Kather_texture_2016_image_tiles_5000/"
 
 # should I include the target in the sample?
 class MyDataset(Dataset):
@@ -35,18 +43,50 @@ def gen_infimnist(start=0, end=10000, split=0.8):
     train_labels = labels[:sidx]
     test_labels = labels[sidx:]
     # print(digits.shape)
-    np.save(FEATURE_TEMPLATE%('train', start, end), train_digits)
-    np.save(TARGET_TEMPLATE%('train', start, end), train_labels)
-    np.save(FEATURE_TEMPLATE%('test', start, end), test_digits)
-    np.save(TARGET_TEMPLATE%('test', start, end), test_labels)
+    np.save(INFIMNIST_FEATURE_TEMPLATE%('train', start, end), train_digits)
+    np.save(INFIMNIST_TARGET_TEMPLATE%('train', start, end), train_labels)
+    np.save(INFIMNIST_FEATURE_TEMPLATE%('test', start, end), test_digits)
+    np.save(INFIMNIST_TARGET_TEMPLATE%('test', start, end), test_labels)
+
+def gen_chmnist(split=0.8):
+    x = []
+    y = []
+    for category in os.listdir(CHMNIST_PATH):
+        for image in os.listdir(CHMNIST_PATH + category):
+            if image.endswith(".tif"):
+                print("found " + image)
+                arr = cv2.imread(CHMNIST_PATH + category + '/' + image)
+                x.append(arr)
+                y.append(category)
+    
+    x = np.array(x)
+    y = np.array(y)
+
+    idx = shuffle(np.arange(x.shape[0]))
+    x = x[idx]
+    y = y[idx]
+
+    sidx = int(x.shape[0] * split)
+    x_train = x[:sidx]
+    y_train = y[:sidx]
+    x_test = x[sidx:]
+    y_test = y[sidx:]
+
+    np.save("../data/CHMNIST_TRAIN_FEATURE.npy", x_train)
+    np.save("../data/CHMNIST_TRAIN_TARGET.npy", y_train)
+    np.save("../data/CHMNIST_TEST_FEATURE.npy", x_test)
+    np.save("../data/CHMNIST_TEST_TARGET.npy", y_test) 
 
 if __name__ == '__main__':
 
+    gen_chmnist()
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--size', type=int, default=10000)
     args = parser.parse_args()
 
     gen_infimnist(0, args.size)
+    """
     # dataset_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%(0,100), TARGET_TEMPLATE%(0,100)))
     # examples = enumerate(dataset_loader)
     # batch_idx, (feature, target) = next(examples)
