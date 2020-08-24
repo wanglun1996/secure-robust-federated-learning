@@ -221,44 +221,45 @@ if __name__ == '__main__':
 
         elif args.mal and args.attack == 'trimmedmean':
             print('attack trimmedmean')
-            average_grad = []
-            for p in list(network.parameters()):
-                average_grad.append(np.zeros(p.data.shape))
+            # average_grad = []
+            # for p in list(network.parameters()):
+            #     average_grad.append(np.zeros(p.data.shape))
             # attack
             local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=2.0)
             # aggregation
-            for idx, _ in enumerate(average_grad):
-                trimmedmean_local = []
-                for kk in range(len(local_grads)):
-                    trimmedmean_local.append(local_grads[kk][idx])
-                average_grad[idx] = trimmed_mean(trimmedmean_local)
+            # for idx, _ in enumerate(average_grad):
+            #     trimmedmean_local = []
+            #     for kk in range(len(local_grads)):
+            #         trimmedmean_local.append(local_grads[kk][idx])
+            #     average_grad[idx] = trimmed_mean(trimmedmean_local)
 
         elif args.mal and args.attack == 'krum':
             print('attack krum')
-            average_grad = []
-            for p in list(network.parameters()):
-                average_grad.append(np.zeros(p.data.shape))
+            # average_grad = []
+            # for p in list(network.parameters()):
+            #     average_grad.append(np.zeros(p.data.shape))
             # attack
             for idx, _ in enumerate(average_grad):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
             # aggregation
-            for idx, _ in enumerate(average_grad):
-                krum_local = []
-                for kk in range(len(local_grads)):
-                    krum_local.append(local_grads[kk][idx])
-                average_grad[idx], _ = krum(krum_local, f=0)
+            # for idx, _ in enumerate(average_grad):
+            #     krum_local = []
+            #     for kk in range(len(local_grads)):
+            #         krum_local.append(local_grads[kk][idx])
+            #     average_grad[idx], _ = krum(krum_local, f=0)
 
-        else:
-            # aggregation
-            print('agg with no attack')
+        # aggregation
+        if args.attack != 'modelpoisoning':
             average_grad = []
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
             if args.agg == 'average':
+                print('average')
                 for c in choices:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
             elif args.agg == 'krum':
+                print('krum')
                 for idx, _ in enumerate(average_grad):
                     krum_local = []
                     for kk in range(len(local_grads)):
@@ -272,6 +273,7 @@ if __name__ == '__main__':
                         filterl2_local.append(local_grads[kk][idx])
                     average_grad[idx] = filterL2(filterl2_local)
             elif args.agg == 'trimmedmean':
+                print('trimmedmean')
                 for idx, _ in enumerate(average_grad):
                     trimmedmean_local = []
                     for kk in range(len(local_grads)):
