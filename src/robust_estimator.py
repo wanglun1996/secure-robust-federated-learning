@@ -47,7 +47,14 @@ def filterL2(samples, sigma=1, itv=None):
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
     """
-    feature_size = samples.shape[1]
+    samples = np.array(samples)
+    feature_shape = samples[0].shape
+    samples_flatten = []
+    for i in range(samples.shape[0]):
+        samples_flatten.append(samples[i].flatten())
+    samples_flatten = np.array(samples_flatten)
+    feature_size = samples_flatten.shape[1]
+    # feature_size = samples.shape[1]
     if itv is None:
         itv = int(np.floor(np.sqrt(feature_size)))
     cnt = int(feature_size // itv)
@@ -59,14 +66,20 @@ def filterL2(samples, sigma=1, itv=None):
     idx = 0
     res = []
     for size in sizes:
-        print(size)
-        res.append(filterL2_(samples[:,idx:idx+size], sigma))
+        # print(size)
+        res.append(filterL2_(samples_flatten[:,idx:idx+size], sigma))
         idx += size
 
-    return np.concatenate(res, axis=0)
+    return np.concatenate(res, axis=0).reshape(feature_shape)
+  
+#         print(size)
+#         res.append(filterL2_(samples[:,idx:idx+size], sigma))
+#         idx += size
 
+#     return np.concatenate(res, axis=0)
 
 def geometric_median(samples):
+    samples = np.array(samples)
     size = samples.shape[0]
     metric = []
 
@@ -77,21 +90,45 @@ def geometric_median(samples):
 
     return samples[np.argmin(metric)] 
 
-def krum(samples, f=0):
+def trimmed_mean(samples, beta=0.1):
+    samples = np.array(samples)
+    # print(samples.shape)
+    average_grad = np.zeros(samples[0].shape)
     size = samples.shape[0]
+    beyond_choose = int(size * beta)
+    # index = np.argsort(samples, axis=0)[beyond_choose:size-beyond_choose]
+    # print(index.shape)
+    samples = np.sort(samples, axis=0)
+    # print(samples.shape)
+    samples = samples[beyond_choose:size-beyond_choose]
+    average_grad = np.average(samples, axis=0)
+    # for i in range(index.shape[0]):
+        # average_grad += samples[index[i]] 
+    # print(average_grad.shape)
+    # average_grad /= float(size - beyond_choose)
+    return average_grad
+
+def krum(samples, f=0):
+    # samples = np.array(samples)
+    size = len(samples)
     # assert this is positive
+    # print(size)
     size_ = size - f - 2
     metric = []
-
-    for idx in range(samples.shape[0]):
+    # print(samples[0].shape, samples[1].shape, samples[2].shape)
+    for idx in range(size):
         sample = samples[idx]
-        samples_ = np.delete(samples, idx, axis=0)
+        # samples_ = np.delete(samples, idx, axis=0)
+        samples_ = samples.copy()
+        del samples_[idx]
+        # print(sample.shape, samples_[0].shape)
         dis = np.array([np.linalg.norm(sample-sample_) for sample_ in samples_])
         metric.append(np.sum(dis[np.argsort(dis)[:size_]]))
-
-    return samples[np.argmin(metric)]
+    index = np.argmin(metric)
+    return samples[index], index
 
 def bulyan(samples, agg=krum, args=None, theta=2):
+    samples = np.array(samples)
     feature_size = samples.shape[1]
     # beta = theta - 2*f
     #FIXME: the above is correct
