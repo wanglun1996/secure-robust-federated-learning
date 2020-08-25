@@ -5,3 +5,5 @@ matplotlib==3.2.2
 torch==1.5.1
 cython==0.29.20
 torchvision==0.6.1
+sklearn
+opencv-python==4.4.0.42

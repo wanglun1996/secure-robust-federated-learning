@@ -256,3 +256,6 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
     # print(average_sign[param_index])
     
     return local_grads
+
+# def model_replacement_attack(original_model, target_model, learning_rate, per_round):
+#     return per_round / learning_rate * (target_model - original_model)

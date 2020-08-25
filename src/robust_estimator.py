@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 from numpy.random import multivariate_normal
 from scipy.linalg import eigh
@@ -14,7 +15,7 @@ def simulate(size=100, feature_size=10, mean=None, cov=None, malicious=False):
     if cov is None:
         cov = np.identity(feature_size)
     return multivariate_normal(mean, cov, size=size)
-    
+
 def filterL2_(samples, sigma=1):
     """
     samples: data samples in numpy array
@@ -53,6 +54,7 @@ def filterL2(samples, sigma=1, itv=None):
         samples_flatten.append(samples[i].flatten())
     samples_flatten = np.array(samples_flatten)
     feature_size = samples_flatten.shape[1]
+    # feature_size = samples.shape[1]
     if itv is None:
         itv = int(np.floor(np.sqrt(feature_size)))
     cnt = int(feature_size // itv)
@@ -69,6 +71,12 @@ def filterL2(samples, sigma=1, itv=None):
         idx += size
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
+  
+#         print(size)
+#         res.append(filterL2_(samples[:,idx:idx+size], sigma))
+#         idx += size
+
+#     return np.concatenate(res, axis=0)
 
 def geometric_median(samples):
     samples = np.array(samples)
@@ -146,6 +154,10 @@ def bulyan(samples, agg=krum, args=None, theta=2):
     
 
 if __name__ == '__main__':
-    data = np.array([[0, 2], [1, 1], [2, 0]])#simulate()
-    # filterL2(data)
-    bulyan(data)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--size', type=int, default=100)
+    parser.add_argument('--feature', type=int, default=1000)
+    args = parser.parse_args()
+
+    data = np.random.normal(size=(args.size, args.feature))
+    filterL2(data)
