@@ -98,6 +98,8 @@ def trimmed_mean(samples, beta=0.1):
     beyond_choose = int(size * beta)
     # index = np.argsort(samples, axis=0)[beyond_choose:size-beyond_choose]
     # print(index.shape)
+    # index = np.argsort(samples, axis=0)
+    # print(index[0], index[-1])
     samples = np.sort(samples, axis=0)
     # print(samples.shape)
     samples = samples[beyond_choose:size-beyond_choose]

@@ -47,7 +47,7 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--mal', type=bool, default=True)
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0,1,2,3,4])
+    parser.add_argument('--mal_index', default=[0,1,2,3])
     parser.add_argument('--mal_boost', type=float, default=10.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
@@ -254,9 +254,11 @@ if __name__ == '__main__':
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
             np.save('../checkpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
             if args.agg == 'average':
+                print('agg: average')
                 for idx, p in enumerate(average_grad):
                     average_grad[idx] = p + local_grads[args.mal_index[0]][idx] / PERROUND
             elif args.agg == 'krum':
+                print('agg: krum')
                 for idx, _ in enumerate(average_grad):
                     # print(local_grads[0][idx].shape,local_grads[1][idx].shape)
                     krum_local = []
@@ -269,7 +271,8 @@ if __name__ == '__main__':
                     for kk in range(len(local_grads)):
                         median_local.append(local_grads[kk][idx])
                     average_grad[idx] = geometric_median(median_local)
-            elif args.agg == 'filterL2':
+            elif args.agg == 'filterl2':
+                print('agg: filterl2')
                 for idx, _ in enumerate(average_grad):
                     filter_local = []
                     for kk in range(len(local_grads)):
@@ -357,7 +360,7 @@ if __name__ == '__main__':
                 grad = torch.from_numpy(average_grad[idx]).to(device)
                 params[idx].data.sub_(grad)
         
-
+        adv_flag = False
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
                 print('Test after attack')
@@ -365,10 +368,10 @@ if __name__ == '__main__':
             correct = 0
             with torch.no_grad():
                 for feature, target in test_loader:
-                    feature = feature.to(device).view(-1, 784)
+                    feature = feature.to(device)
                     target = target.type(torch.long).to(device)
                     output = network(feature)
-                    test_loss += F.nll_loss(output, target, reduction='sum').item()
+                    test_loss += F.cross_entropy(output, target, reduction='sum').item()
                     pred = output.data.max(1, keepdim=True)[1]
                     correct += pred.eq(target.data.view_as(pred)).sum()
             test_loss /= len(test_loader.dataset)

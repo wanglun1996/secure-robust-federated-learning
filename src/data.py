@@ -47,8 +47,8 @@ class MalDataset(Dataset):
         sample = self.feature[idx]
         mal_data = self.mal_dada[idx]
         if self.transform:
-            sample = self.transform(sample).view(28*28)
-            mal_data = self.transform(mal_data).view(28*28)
+            sample = self.transform(sample)
+            mal_data = self.transform(mal_data)
         return sample, mal_data, self.true_label[idx], self.target[idx]
     
     def __len__(self):
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('--size', type=int, default=10000)
     args = parser.parse_args()
     gen_mal_data(0, 10)
-
+    """
     # gen_infimnist(0, args.size)
     # dataset_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%(0,100), TARGET_TEMPLATE%(0,100)))
     # examples = enumerate(dataset_loader)
