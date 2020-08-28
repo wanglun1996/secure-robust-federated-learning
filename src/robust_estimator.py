@@ -16,7 +16,7 @@ def simulate(size=100, feature_size=10, mean=None, cov=None, malicious=False):
         cov = np.identity(feature_size)
     return multivariate_normal(mean, cov, size=size)
 
-def filterL2_(samples, sigma=1):
+def filterL2_(samples, sigma=1, expansion=20):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -34,15 +34,14 @@ def filterL2_(samples, sigma=1):
         eig_val = eig_val[0]
         eig_vec = eig_vec.T[0]
 
-        #FIXME: add argument for 20 here
-        if eig_val * eig_val <= 20 * sigma * sigma:
+        if eig_val * eig_val <= expansion * sigma * sigma:
             return avg
 
         tau = np.array([np.inner(sample-avg, eig_vec) for sample in samples])
         tau_max = np.amax(tau)
         c = c * (1 - tau/tau_max)
  
-def filterL2(samples, sigma=1, itv=None):
+def filterL2(samples, sigma=1, expansion=20, itv=None):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -67,7 +66,7 @@ def filterL2(samples, sigma=1, itv=None):
     res = []
     for size in sizes:
         # print(size)
-        res.append(filterL2_(samples_flatten[:,idx:idx+size], sigma))
+        res.append(filterL2_(samples_flatten[:,idx:idx+size], sigma, expansion))
         idx += size
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
@@ -77,6 +76,31 @@ def filterL2(samples, sigma=1, itv=None):
 #         idx += size
 
 #     return np.concatenate(res, axis=0)
+
+def pgd(samples):
+
+    """
+    Robust estimator from paper: High-Dimensional Robust Mean Estimation via Gradient Descent
+    """
+    pass
+
+    """
+    def weighted_cov(samples, weight):
+        mean = weight * samples.T
+        cov = weight * (samples - mean) * (samples - mean).T
+        return cov
+
+    weight = np.random()
+    for _ in range(T):
+        # eigenvalue decomposition
+        # gradient
+        # l2-projection
+
+     if :
+         return weight * sample
+
+    raise NotImplementedError
+    """
 
 def geometric_median(samples):
     samples = np.array(samples)
