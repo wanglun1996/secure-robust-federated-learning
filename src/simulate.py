@@ -48,8 +48,8 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--mal', type=bool, default=True)
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0])
-    parser.add_argument('--mal_boost', type=float, default=10.0)
+    parser.add_argument('--mal_index', default=[0,1,2,3])
+    parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
     args = parser.parse_args()
@@ -196,13 +196,14 @@ if __name__ == '__main__':
                 mal_active = 1
 
             elif args.mal and c in args.mal_index and args.attack == 'backdoor':
+                print('backdoor')
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
                 
                 for iepoch in range(0, LOCALITER):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
-                        attack_target = torch.zeros(BATCH_SIZE, dtype=torch.long)
+                        attack_target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
                         optimizer.zero_grad()
                         output = network(attack_feature)
                         loss = criterion(output, attack_target)
