@@ -26,8 +26,12 @@ def filterL2_(samples, sigma=1):
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
-
+    count = 0
     while True:
+        count += 1
+        if count > 100:
+            sigma *= 2
+            count = 0
         avg = np.average(samples, axis=0, weights=c)
         cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
         eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
@@ -35,13 +39,15 @@ def filterL2_(samples, sigma=1):
         eig_vec = eig_vec.T[0]
 
         #FIXME: add argument for 20 here
+        # print(eig_val)
         if eig_val * eig_val <= 20 * sigma * sigma:
+            print('round ', count)
             return avg
-
+        
         tau = np.array([np.inner(sample-avg, eig_vec) for sample in samples])
         tau_max = np.amax(tau)
         c = c * (1 - tau/tau_max)
- 
+
 def filterL2(samples, sigma=1, itv=None):
     """
     samples: data samples in numpy array
