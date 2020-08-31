@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from networks import MultiLayerPerceptron, ConvNet, ResNet20
 from data import gen_infimnist, MyDataset, MalDataset
 import torch.nn.functional as F
+import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
 from robust_estimator import krum, geometric_median, filterL2, trimmed_mean
@@ -182,16 +183,6 @@ if __name__ == '__main__':
                     local_grads[c][idx] = np.zeros(p.shape)
 
                 for iepoch in range(0, LOCALITER):
-                #     for idx, (feature, target) in enumerate(train_loaders[c], 0):
-                #         feature = feature.to(device)
-                #         target = target.type(torch.long).to(device)
-                #         optimizer.zero_grad()
-                #         output = network(feature)
-                #         loss = criterion(output, target)
-                #         loss.backward()
-                #         optimizer.step()
-                # for idx, p in enumerate(network.parameters()):
-                #     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
                     params_temp = []
 
                     for p in list(network.parameters()):
@@ -204,28 +195,32 @@ if __name__ == '__main__':
                 
                 mal_active = 1
 
+            elif args.mal and c in args.mal_index and args.attack == 'backdoor':
+                for idx, p in enumerate(local_grads[c]):
+                    local_grads[c][idx] = np.zeros(p.shape)
+                
+                for iepoch in range(0, LOCALITER):
+                    for idx, (feature, target) in enumerate(train_loaders[c], 0):
+                        attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
+                        attack_target = torch.zeros(BATCH_SIZE, dtype=torch.long)
+                        optimizer.zero_grad()
+                        output = network(attack_feature)
+                        loss = criterion(output, attack_target)
+                        loss.backward()
+                        optimizer.step()
+                for idx, p in enumerate(network.parameters()):
+                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+
             else:
                 for iepoch in range(0, LOCALITER):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         feature = feature.to(device)
-                        
-#             print(c)
-#             if c == adv:
-#                 print("Adv chosen!")
-#             #     for idx, p in enumerate(backdoor_network.parameters()):
-#             #         local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
-#             else:    
-#                 for iepoch in range(0, LOCALITER):
-#                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
-#                         feature = feature.to(device) # .view(-1, 784)
-
                         target = target.type(torch.long).to(device)
                         optimizer.zero_grad()
                         output = network(feature)
                         loss = criterion(output, target)
                         loss.backward()
                         optimizer.step()
-
             # compute the difference
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
@@ -234,15 +229,6 @@ if __name__ == '__main__':
             with torch.no_grad():
                 for idx, p in enumerate(list(network.parameters())):
                     p.copy_(params_copy[idx])
-
-#                 # compute the difference
-#                 for idx, p in enumerate(network.parameters()):
-#                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
-
-#                 # manually restore the parameters of the global network
-#                 with torch.no_grad():
-#                     for idx, p in enumerate(list(network.parameters())):
-#                         p.copy_(params_copy[idx])
 
         if args.mal and mal_active and args.attack == 'modelpoisoning':
             average_grad = []
@@ -283,32 +269,14 @@ if __name__ == '__main__':
 
         elif args.mal and args.attack == 'trimmedmean':
             print('attack trimmedmean')
-            # average_grad = []
-            # for p in list(network.parameters()):
-            #     average_grad.append(np.zeros(p.data.shape))
-            # attack
+
             local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=1.5)
-            # aggregation
-            # for idx, _ in enumerate(average_grad):
-            #     trimmedmean_local = []
-            #     for kk in range(len(local_grads)):
-            #         trimmedmean_local.append(local_grads[kk][idx])
-            #     average_grad[idx] = trimmed_mean(trimmedmean_local)
 
         elif args.mal and args.attack == 'krum':
             print('attack krum')
-            # average_grad = []
-            # for p in list(network.parameters()):
-            #     average_grad.append(np.zeros(p.data.shape))
-            # attack
+
             for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
-            # aggregation
-            # for idx, _ in enumerate(average_grad):
-            #     krum_local = []
-            #     for kk in range(len(local_grads)):
-            #         krum_local.append(local_grads[kk][idx])
-            #     average_grad[idx], _ = krum(krum_local, f=0)
 
         # aggregation
         if args.attack != 'modelpoisoning':
@@ -316,43 +284,32 @@ if __name__ == '__main__':
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
             if args.agg == 'average':
-                print('average')
+                print('agg: average')
                 for c in choices:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
             elif args.agg == 'krum':
-                print('krum')
+                print('agg: krum')
                 for idx, _ in enumerate(average_grad):
                     krum_local = []
                     for kk in range(len(local_grads)):
                         krum_local.append(local_grads[kk][idx])
                     average_grad[idx], _ = krum(krum_local, f=1)
             elif args.agg == 'filterl2':
-                print('filterl2')
+                print('agg: filterl2')
                 for idx, _ in enumerate(average_grad):
                     filterl2_local = []
                     for kk in range(len(local_grads)):
                         filterl2_local.append(local_grads[kk][idx])
                     average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
             elif args.agg == 'trimmedmean':
-                print('trimmedmean')
+                print('agg: trimmedmean')
                 for idx, _ in enumerate(average_grad):
                     trimmedmean_local = []
                     for kk in range(len(local_grads)):
                         trimmedmean_local.append(local_grads[kk][idx])
                     average_grad[idx] = trimmed_mean(trimmedmean_local)
-                    
-#         average_grad = []
-#         for p in list(network.parameters()):
-#             average_grad.append(np.zeros(p.data.shape))
-#         for c in choices:
-#             if c == adv:
-#                 adv_flag = True
-#                 for idx, p in enumerate(average_grad):
-#                     average_grad[idx] = p + local_grads[c][idx]
-#             else:
-#                 for idx, p in enumerate(average_grad):
-#                     average_grad[idx] = p + local_grads[c][idx] / PERROUND
+
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -393,15 +350,16 @@ if __name__ == '__main__':
             test_loss /= len(mal_train_loaders.dataset)
             print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
             
-#             test_loss = 0
-#             correct = 0
-#             with torch.no_grad():
-#                 for feature, target in test_loader:
-#                     feature = (torchvision.transforms.functional.erase(feature, 0, 0, 5, 5, 0).to(device)).view(-1, 784)
-#                     target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
-#                     output = network(feature)
-#                     test_loss += F.nll_loss(output, target, size_average=False).item()
-#                     pred = output.data.max(1, keepdim=True)[1]
-#                     correct += pred.eq(target.data.view_as(pred)).sum()
-#             test_loss /= len(test_loader.dataset)
-#             print('\nAttack set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+        if args.attack == 'backdoor' and args.mal == True:
+            correct = 0
+            # attack success rate
+            with torch.no_grad():
+                for feature, target in test_loader:
+                    feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
+                    target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
+                    output = network(feature)
+                    F.nll_loss(output, target, size_average=False).item()
+                    pred = output.data.max(1, keepdim=True)[1]
+                    correct += pred.eq(target.data.view_as(pred)).sum()
+            attack_acc = 100. * correct / len(test_loader.dataset)
+            print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
