@@ -7,3 +7,4 @@ cython==0.29.20
 torchvision==0.6.1
 sklearn
 opencv-python==4.4.0.42
+cvxpy==1.1.5

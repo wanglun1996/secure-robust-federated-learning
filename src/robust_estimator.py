@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 from numpy.random import multivariate_normal
 from scipy.linalg import eigh
+import cvxpy as cvx
 
 def simulate(size=100, feature_size=10, mean=None, cov=None, malicious=False):
     """simulate the data drawn from multivariate Gaussian distribution
@@ -77,30 +78,51 @@ def filterL2(samples, sigma=1, expansion=20, itv=None):
 
 #     return np.concatenate(res, axis=0)
 
-def pgd(samples):
+def pgd(samples, epsilon=1e-2, lr=1e-3):
 
     """
     Robust estimator from paper: High-Dimensional Robust Mean Estimation via Gradient Descent
     """
-    pass
 
-    """
-    def weighted_cov(samples, weight):
-        mean = weight * samples.T
-        cov = weight * (samples - mean) * (samples - mean).T
+    # FIXME: check that this is correct
+    def weighted_cov(weight):
+        mean = weight @ samples
+        cov = (samples - mean).T @ (weight.reshape(-1, 1) * (samples - mean))
         return cov
 
-    weight = np.random()
+    def compute_grad(u, w):
+        return (samples @ u.reshape(-1, 1)) * (samples @ u.reshape(-1, 1)) - 2 * (u.reshape(1, -1) @ samples.transpose() @ w.reshape(-1, 1) * samples @ u.reshape(-1, 1))
+
+    # FIXME: make sure the projection is correct
+    def project_l2(w):
+        x = cvx.Variable(w.shape)
+        objective = cvx.Minimize(cvx.norm(w-x, 2))
+        constraints = [x >= 0, x <= 1 / (1-epsilon) / w.shape[0], sum(x)==1]
+        prob = cvx.Problem(objective, constraints)
+        results = prob.solve(verbose=False)
+
+        w = np.array(x.value)
+        w[np.abs(w)<1e-9]=0
+        return w
+
+    size = samples.shape[0]
+    feature_size = samples.shape[1]
+    weight = np.ones(size) / size
+
+    # FIXME: no way to really use this
+    T = 100 # size * size * feature_size * feature_size * feature_size * feature_size
     for _ in range(T):
-        # eigenvalue decomposition
-        # gradient
-        # l2-projection
+        cov = weighted_cov(weight)
+        # FIXME: make sure the error is within the allowed range
+        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+        # eig_val = eig_val[0]
+        eig_vec = eig_vec.T[0]
 
-     if :
-         return weight * sample
+        grad = compute_grad(eig_vec, weight)
 
-    raise NotImplementedError
-    """
+        weight = project_l2(weight - lr * grad.flatten())
+
+    return weight
 
 def geometric_median(samples):
     samples = np.array(samples)
@@ -184,4 +206,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     data = np.random.normal(size=(args.size, args.feature))
-    filterL2(data)
+    w = pgd(data)
+    print(w)
