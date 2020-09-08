@@ -41,10 +41,11 @@ def filterL2_(samples, sigma=1):
         #FIXME: add argument for 20 here
         # print(eig_val)
         if eig_val * eig_val <= 20 * sigma * sigma:
-            print('round ', count)
+            # print(c)
+            # print('round ', count)
             return avg
         
-        tau = np.array([np.inner(sample-avg, eig_vec) for sample in samples])
+        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
         tau_max = np.amax(tau)
         c = c * (1 - tau/tau_max)
 

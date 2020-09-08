@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--nworker', type=int, default=20)
     parser.add_argument('--perround', type=int, default=20)
     parser.add_argument('--localiter', type=int, default=5)
-    parser.add_argument('--epoch', type=int, default=100) 
+    parser.add_argument('--epoch', type=int, default=30) 
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     # The size of the additive group used in secure aggregation
     parser.add_argument('--grouporder', type=int, default=512)
     # The variance of the discrete Gaussian noise
-    parser.add_argument('--sigma2', type=float, default=1.)
+    parser.add_argument('--sigma2', type=float, default=1e-6)
     parser.add_argument('--momentum')
     parser.add_argument('--weightdecay')
     parser.add_argument('--network')
@@ -48,8 +48,8 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--mal', type=bool, default=True)
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0,1,2,3])
-    parser.add_argument('--mal_boost', type=float, default=2.0)
+    parser.add_argument('--mal_index', default=[0,1,2,3,4])
+    parser.add_argument('--mal_boost', type=float, default=10.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
     args = parser.parse_args()
@@ -319,6 +319,8 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = False
+        text_file_name = '../results/' + args.attack + '_' + args.agg + '7777777_' + args.dataset + '.txt'
+        txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
                 print('Test after attack')
@@ -333,6 +335,7 @@ if __name__ == '__main__':
                     pred = output.data.max(1, keepdim=True)[1]
                     correct += pred.eq(target.data.view_as(pred)).sum()
             test_loss /= len(test_loader.dataset)
+            txt_file.write('%d, \t%f, \t%f\n'%(epoch, test_loss, 100. * correct / len(test_loader.dataset)))
             print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
 
@@ -349,6 +352,7 @@ if __name__ == '__main__':
                     pred = output.data.max(1, keepdim=True)[1]
                     correct += pred.eq(target.data.view_as(pred)).sum()
             test_loss /= len(mal_train_loaders.dataset)
+            txt_file.write('malicious acc: %f\n'%(100. * correct / len(mal_train_loaders.dataset)))
             print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
             
         if args.attack == 'backdoor' and args.mal == True:
@@ -363,4 +367,5 @@ if __name__ == '__main__':
                     pred = output.data.max(1, keepdim=True)[1]
                     correct += pred.eq(target.data.view_as(pred)).sum()
             attack_acc = 100. * correct / len(test_loader.dataset)
+            txt_file.write('backdoor acc: %f\n'%attack_acc)
             print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
