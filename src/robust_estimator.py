@@ -136,31 +136,92 @@ def krum(samples, f=0):
     index = np.argmin(metric)
     return samples[index], index
 
-def bulyan(samples, agg=krum, args=None, theta=2):
-    samples = np.array(samples)
-    feature_size = samples.shape[1]
-    # beta = theta - 2*f
-    #FIXME: the above is correct
-    beta = 2
-    S = []
+# def bulyan(samples, agg=krum, args=None, theta=2):
+#     samples = np.array(samples)
+#     feature_size = samples.shape[1]
+#     # beta = theta - 2*f
+#     #FIXME: the above is correct
+#     beta = 2
+#     S = []
 
-    for _ in range(theta):
-       picked_sample = agg(samples)
-       S.append(picked_sample)
-       samples = np.delete(samples, np.argwhere([picked_sample])[:1], axis=0)
+#     for _ in range(theta):
+#        picked_sample = agg(samples)
+#        S.append(picked_sample)
+#        samples = np.delete(samples, np.argwhere([picked_sample])[:1], axis=0)
 
-    S = np.array(S)
-    res = np.zeros(feature_size)
-    # coordinate-wise median
-    for idx in range(feature_size):
-        samples_ = S[:, idx]
-        med = np.median(samples_)
-        idxs = np.argsort([np.abs(sample_-med) for sample_ in samples_])[:beta]
-        res[idx] = np.average(S[idxs])
+#     S = np.array(S)
+#     res = np.zeros(feature_size)
+#     # coordinate-wise median
+#     for idx in range(feature_size):
+#         samples_ = S[:, idx]
+#         med = np.median(samples_)
+#         idxs = np.argsort([np.abs(sample_-med) for sample_ in samples_])[:beta]
+#         res[idx] = np.average(S[idxs])
 
-    print(res)
-    return res
+#     print(res)
+#     return res
     
+# bulyan
+def bulyan_median(arr):
+    arr_len = len(arr)
+    distances = np.zeros([arr_len, arr_len])
+    for i in range(arr_len):
+        for j in range(arr_len):
+            if i < j:
+                distances[i, j] = abs(arr[i] - arr[j])
+            elif i > j:
+                distances[i, j] = distances[j, i]
+    total_dis = np.sum(distances, axis=-1)
+    median_index = np.argmin(total_dis)
+    return median_index, distances[median_index]
+
+def bulyan_one_coordinate(arr, beta):
+    _, distances = bulyan_median(arr)
+    median_beta_neighbors = arr[np.argsort(distances)[:beta]]
+    return np.mean(median_beta_neighbors)
+
+def bulyan(grads, aggsubfunc='krum', f=2):
+    grads_num = len(grads)
+    theta = grads_num - 2 * f
+    # bulyan cannot do the work here when theta <= 0. Actually, it assumes n >= 4 * f + 3
+    selected_grads = []
+    # here, we use krum as sub algorithm
+    if aggsubfunc == 'krum':
+        for i in range(theta):
+            krum_grad = krum(grads)
+            selected_grads.append(krum_grad)
+            for j in range(len(grads)):
+                if grads[j] is krum_grad:
+                    del grads[j]
+                    break
+    elif aggsubfunc == 'trimmedmean':
+        for i in range(theta):
+            trimmedmean_grads = trimmed_mean(grads)
+            selected_grads.append(trimmedmean_grads)
+            min_dis = np.inf
+            min_index = None
+            for j in range(len(grads)):
+                temp_dis = np.linalg.norm(trimmedmean_grads - grads[i])
+                if temp_dis < min_dis:
+                    min_dis = temp_dis
+                    min_index = j
+            assert min_index != None
+
+
+    beta = theta - 2 * f
+    np_grads = np.array([g.numpy().flatten().tolist() for g in selected_grads])
+
+    grads_dim = len(np_grads[0])
+    selected_grads_by_cod = np.zeros([grads_dim, 1])  # shape of torch grads
+    for i in range(grads_dim):
+        selected_grads_by_cod[i, 0] = bulyan_one_coordinate(np_grads[:, i], beta)
+
+    return selected_grads_by_cod
+    # if use_cuda:
+    #     cuda_tensor = torch.from_numpy(selected_grads_by_cod.astype(np.float32)).cuda()
+    #     return cuda_tensor
+    # else:
+    #     return torch.from_numpy(selected_grads_by_cod.astype(np.float32))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
