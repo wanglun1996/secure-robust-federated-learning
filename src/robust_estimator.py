@@ -181,27 +181,33 @@ def bulyan_one_coordinate(arr, beta):
     return np.mean(median_beta_neighbors)
 
 def bulyan(grads, aggsubfunc='krum', f=2):
-    grads_num = len(grads)
+    samples = np.array(grads)
+    feature_shape = grads[0].shape
+    samples_flatten = []
+    for i in range(samples.shape[0]):
+        samples_flatten.append(samples[i].flatten())
+
+    grads_num = len(samples_flatten)
     theta = grads_num - 2 * f
     # bulyan cannot do the work here when theta <= 0. Actually, it assumes n >= 4 * f + 3
     selected_grads = []
     # here, we use krum as sub algorithm
     if aggsubfunc == 'krum':
         for i in range(theta):
-            krum_grad = krum(grads)
+            krum_grad = krum(samples_flatten)
             selected_grads.append(krum_grad)
-            for j in range(len(grads)):
-                if grads[j] is krum_grad:
-                    del grads[j]
+            for j in range(len(samples_flatten)):
+                if samples_flatten[j] is krum_grad:
+                    del samples_flatten[j]
                     break
     elif aggsubfunc == 'trimmedmean':
         for i in range(theta):
-            trimmedmean_grads = trimmed_mean(grads)
+            trimmedmean_grads = trimmed_mean(samples_flatten)
             selected_grads.append(trimmedmean_grads)
             min_dis = np.inf
             min_index = None
-            for j in range(len(grads)):
-                temp_dis = np.linalg.norm(trimmedmean_grads - grads[i])
+            for j in range(len(samples_flatten)):
+                temp_dis = np.linalg.norm(trimmedmean_grads - samples_flatten[i])
                 if temp_dis < min_dis:
                     min_dis = temp_dis
                     min_index = j
@@ -216,7 +222,7 @@ def bulyan(grads, aggsubfunc='krum', f=2):
     for i in range(grads_dim):
         selected_grads_by_cod[i, 0] = bulyan_one_coordinate(np_grads[:, i], beta)
 
-    return selected_grads_by_cod
+    return selected_grads_by_cod.reshape(feature_shape)
     # if use_cuda:
     #     cuda_tensor = torch.from_numpy(selected_grads_by_cod.astype(np.float32)).cuda()
     #     return cuda_tensor
