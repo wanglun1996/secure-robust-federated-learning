@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, geometric_median, filterL2, trimmed_mean
+from robust_estimator import krum, geometric_median, filterL2, trimmed_mean, bulyan
 import random
 from backdoor import backdoor
 
@@ -265,6 +265,13 @@ if __name__ == '__main__':
                     for kk in range(len(local_grads)):
                         filter_local.append(local_grads[kk][idx])
                     average_grad[idx] = filterL2(filter_local,sigma=SIGMA2)
+            elif args.agg == 'bulyan':
+                print('agg: bulyan')
+                for idx, _ in enumerate(average_grad):
+                    bulyan_local = []
+                    for kk in range(len(local_grads)):
+                        bulyan_local.append(local_grads[kk][idx])
+                    average_grad[idx] = bulyan(bulyan_local,aggsubfunc='krum',f=3)
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -310,7 +317,13 @@ if __name__ == '__main__':
                     for kk in range(len(local_grads)):
                         trimmedmean_local.append(local_grads[kk][idx])
                     average_grad[idx] = trimmed_mean(trimmedmean_local)
-
+            elif args.agg == 'bulyan':
+                print('agg: bulyan')
+                for idx, _ in enumerate(average_grad):
+                    bulyan_local = []
+                    for kk in range(len(local_grads)):
+                        bulyan_local.append(local_grads[kk][idx])
+                    average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum', f=3)
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -319,7 +332,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = False
-        text_file_name = '../results/' + args.attack + '_' + args.agg + '7777777_' + args.dataset + '.txt'
+        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:

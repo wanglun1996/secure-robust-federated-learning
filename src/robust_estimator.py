@@ -180,7 +180,7 @@ def bulyan_one_coordinate(arr, beta):
     median_beta_neighbors = arr[np.argsort(distances)[:beta]]
     return np.mean(median_beta_neighbors)
 
-def bulyan(grads, aggsubfunc='krum', f=2):
+def bulyan(grads, aggsubfunc='trimmedmean', f=2):
     samples = np.array(grads)
     feature_shape = grads[0].shape
     samples_flatten = []
@@ -194,28 +194,30 @@ def bulyan(grads, aggsubfunc='krum', f=2):
     # here, we use krum as sub algorithm
     if aggsubfunc == 'krum':
         for i in range(theta):
-            krum_grad = krum(samples_flatten)
+            krum_grad, _ = krum(samples_flatten)
             selected_grads.append(krum_grad)
             for j in range(len(samples_flatten)):
                 if samples_flatten[j] is krum_grad:
                     del samples_flatten[j]
                     break
     elif aggsubfunc == 'trimmedmean':
+        # print(theta)
         for i in range(theta):
             trimmedmean_grads = trimmed_mean(samples_flatten)
             selected_grads.append(trimmedmean_grads)
             min_dis = np.inf
             min_index = None
             for j in range(len(samples_flatten)):
-                temp_dis = np.linalg.norm(trimmedmean_grads - samples_flatten[i])
+                temp_dis = np.linalg.norm(trimmedmean_grads - samples_flatten[j])
                 if temp_dis < min_dis:
                     min_dis = temp_dis
                     min_index = j
             assert min_index != None
+            del samples_flatten[min_index]
 
-
+    # print(selected_grads[0].shape)
     beta = theta - 2 * f
-    np_grads = np.array([g.numpy().flatten().tolist() for g in selected_grads])
+    np_grads = np.array([g.flatten().tolist() for g in selected_grads])
 
     grads_dim = len(np_grads[0])
     selected_grads_by_cod = np.zeros([grads_dim, 1])  # shape of torch grads
@@ -235,5 +237,10 @@ if __name__ == '__main__':
     parser.add_argument('--feature', type=int, default=1000)
     args = parser.parse_args()
 
-    data = np.random.normal(size=(args.size, args.feature))
-    filterL2(data)
+    #data = np.random.normal(size=(args.size, args.feature))
+    data = []
+    for i in range(20):
+        data.append(np.random.normal(size=(20,20)))
+    # filterL2(data)
+    res = bulyan(data)
+    print(res)
