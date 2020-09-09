@@ -4,6 +4,7 @@ from torch import nn
 import random
 from scipy.spatial import distance
 from robust_estimator import krum
+import copy
 
 # Training benign model at malicious agent
 def benign_train(mal_train_loaders, network, criterion, optimizer, params_copy, device):
@@ -149,7 +150,7 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
     average_sign = []
     mal_param = []
     agent_num = len(local_grads)
-    local_param = local_grads.copy()
+    local_param = copy.deepcopy(local_grads)
     for p in list(network.parameters()):
         benign_max.append(np.zeros(p.data.shape))
         benign_min.append(np.zeros(p.data.shape))
@@ -162,11 +163,13 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
     for idx, p in enumerate(network.parameters()):
         temp = []
         for c in range(len(local_grads)):
-            local_param[c][idx] += p.data.cpu().numpy() / agent_num
+            local_param[c][idx] = p.data.cpu().numpy() - local_param[c][idx]
             temp.append(local_param[c][idx])
         temp = np.array(temp)
         benign_max[idx] = np.amax(temp, axis=0)
         benign_min[idx] = np.amin(temp, axis=0)
+        #print(temp)
+        #print(benign_min[idx])
     
     for idx, p in enumerate(average_sign):
         for aver_sign, b_max, b_min, mal_p in np.nditer([p, benign_max[idx], benign_min[idx], mal_param[idx]], op_flags=['readwrite']):
@@ -184,10 +187,10 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
                     mal_p[...] = random.uniform(b_max, b_max/b)
     for c in mal_index:
         for idx, p in enumerate(network.parameters()):
-            # print(mal_param[idx])
-            local_grads[c][idx] = mal_param[idx] - p.data.cpu().numpy()
+            #print(mal_param[idx])
+            local_grads[c][idx] = -mal_param[idx] + p.data.cpu().numpy()
         # print(local_grads[c])
-
+    #print(local_grads[2])
     return local_grads
 
 def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, upper_bound=1e-3):
