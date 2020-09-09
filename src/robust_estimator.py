@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 from numpy.random import multivariate_normal
 from scipy.linalg import eigh
+import cvxpy as cvx
 
 def simulate(size=100, feature_size=10, mean=None, cov=None, malicious=False):
     """simulate the data drawn from multivariate Gaussian distribution
@@ -16,7 +17,7 @@ def simulate(size=100, feature_size=10, mean=None, cov=None, malicious=False):
         cov = np.identity(feature_size)
     return multivariate_normal(mean, cov, size=size)
 
-def filterL2_(samples, sigma=1):
+def filterL2_(samples, sigma=1, expansion=20):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -38,18 +39,14 @@ def filterL2_(samples, sigma=1):
         eig_val = eig_val[0]
         eig_vec = eig_vec.T[0]
 
-        #FIXME: add argument for 20 here
-        # print(eig_val)
-        if eig_val * eig_val <= 20 * sigma * sigma:
-            # print(c)
-            # print('round ', count)
+        if eig_val * eig_val <= expansion * sigma * sigma:
             return avg
         
         tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
         tau_max = np.amax(tau)
         c = c * (1 - tau/tau_max)
-
-def filterL2(samples, sigma=1, itv=None):
+ 
+def filterL2(samples, sigma=1, expansion=20, itv=None):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -74,7 +71,7 @@ def filterL2(samples, sigma=1, itv=None):
     res = []
     for size in sizes:
         # print(size)
-        res.append(filterL2_(samples_flatten[:,idx:idx+size], sigma))
+        res.append(filterL2_(samples_flatten[:,idx:idx+size], sigma, expansion))
         idx += size
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
@@ -84,6 +81,52 @@ def filterL2(samples, sigma=1, itv=None):
 #         idx += size
 
 #     return np.concatenate(res, axis=0)
+
+def pgd(samples, epsilon=1e-2, lr=1e-3):
+
+    """
+    Robust estimator from paper: High-Dimensional Robust Mean Estimation via Gradient Descent
+    """
+
+    # FIXME: check that this is correct
+    def weighted_cov(weight):
+        mean = weight @ samples
+        cov = (samples - mean).T @ (weight.reshape(-1, 1) * (samples - mean))
+        return cov
+
+    def compute_grad(u, w):
+        return (samples @ u.reshape(-1, 1)) * (samples @ u.reshape(-1, 1)) - 2 * (u.reshape(1, -1) @ samples.transpose() @ w.reshape(-1, 1) * samples @ u.reshape(-1, 1))
+
+    # FIXME: make sure the projection is correct
+    def project_l2(w):
+        x = cvx.Variable(w.shape)
+        objective = cvx.Minimize(cvx.norm(w-x, 2))
+        constraints = [x >= 0, x <= 1 / (1-epsilon) / w.shape[0], sum(x)==1]
+        prob = cvx.Problem(objective, constraints)
+        results = prob.solve(verbose=False)
+
+        w = np.array(x.value)
+        w[np.abs(w)<1e-9]=0
+        return w
+
+    size = samples.shape[0]
+    feature_size = samples.shape[1]
+    weight = np.ones(size) / size
+
+    # FIXME: no way to really use this
+    T = 100 # size * size * feature_size * feature_size * feature_size * feature_size
+    for _ in range(T):
+        cov = weighted_cov(weight)
+        # FIXME: make sure the error is within the allowed range
+        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+        # eig_val = eig_val[0]
+        eig_vec = eig_vec.T[0]
+
+        grad = compute_grad(eig_vec, weight)
+
+        weight = project_l2(weight - lr * grad.flatten())
+
+    return weight
 
 def geometric_median(samples):
     samples = np.array(samples)
@@ -244,3 +287,6 @@ if __name__ == '__main__':
     # filterL2(data)
     res = bulyan(data)
     print(res)
+    # data = np.random.normal(size=(args.size, args.feature))
+    # w = pgd(data)
+    # print(w)

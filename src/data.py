@@ -13,6 +13,8 @@ import cv2
 
 INFIMNIST_FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 INFIMNIST_TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
+INFIMNIST_MAL_FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
+INFIMNIST_MAL_TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
 INFIMNIST_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
 
 CHMNIST_PATH = "../data/Kather_texture_2016_image_tiles_5000/"
@@ -71,9 +73,9 @@ def gen_mal_data(start=0, end=100, split=0.8):
         mal_train_labels[i] = np.random.choice(allowed_targets)
 
     # print(digits.shape)
-    np.save(INFIMNIST_FEATURE_TEMPLATE%('train', start, end), train_digits)
+    np.save(INFIMNIST_MAL_FEATURE_TEMPLATE%('train', start, end), train_digits)
     np.save(INFIMNIST_TRUE_LABEL_TEMPLATE%('train', start, end), train_labels)
-    np.save(INFIMNIST_TARGET_TEMPLATE%('train', start, end), mal_train_labels)
+    np.save(INFIMNIST_MAL_TARGET_TEMPLATE%('train', start, end), mal_train_labels)
     # np.save(FEATURE_TEMPLATE%('test', start, end), test_digits)
     # np.save(TRUE_LABEL_TEMPLATE%('test', start, end), test_labels)
     return None
@@ -130,11 +132,12 @@ def gen_chmnist(split=0.8):
 
 if __name__ == '__main__':
 
-    gen_chmnist()
-    """
+    # gen_chmnist()
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--size', type=int, default=10000)
     args = parser.parse_args()
+    gen_infimnist(0, args.size)
     gen_mal_data(0, 10)
     """
     # gen_infimnist(0, args.size)
