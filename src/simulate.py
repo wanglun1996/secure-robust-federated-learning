@@ -20,6 +20,18 @@ MAL_FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
 MAL_TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
 MAL_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
 
+CIFAR_MAL_FEATURE_TEMPLATE = '../data/cifar_mal_feature_10.npy'
+CIFAR_MAL_TARGET_TEMPLATE = '../data/cifar_mal_target_10.npy'
+CIFAR_MAL_TRUE_LABEL_TEMPLATE = '../data/cifar_mal_true_label_10.npy'
+
+FASHION_MAL_FEATURE_TEMPLATE = '../data/fashion_mal_feature_10.npy'
+FASHION_MAL_TARGET_TEMPLATE = '../data/fashion_mal_target_10.npy'
+FASHION_MAL_TRUE_LABEL_TEMPLATE = '../data/fashion_mal_true_label_10.npy'
+
+CH_MAL_FEATURE_TEMPLATE = '../data/chmnist_mal_feature_10.npy'
+CH_MAL_TARGET_TEMPLATE = '../data/chmnist_mal_target_10.npy'
+CH_MAL_TRUE_LABEL_TEMPLATE = '../data/chmnist_mal_true_label_10.npy'
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -105,6 +117,8 @@ if __name__ == '__main__':
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform))
 
+        mal_train_loaders = DataLoader(MalDataset(CIFAR_MAL_FEATURE_TEMPLATE, CIFAR_MAL_TRUE_LABEL_TEMPLATE, CIFAR_MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
+
         network = ConvNet().to(device)
         backdoor_network = ConvNet().to(device)
 
@@ -113,6 +127,7 @@ if __name__ == '__main__':
         train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
+        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_TEMPLATE, FASHION_MAL_TRUE_LABEL_TEMPLATE, FASHION_MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
@@ -124,6 +139,7 @@ if __name__ == '__main__':
         train_set = MyDataset("../data/CHMNIST_TRAIN_FEATURE.npy", "../data/CHMNIST_TRAIN_TARGET.npy", transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(MyDataset("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy", transform=transform), batch_size=BATCH_SIZE)        
+        mal_train_loaders = DataLoader(MalDataset(CH_MAL_FEATURE_TEMPLATE, CH_MAL_TRUE_LABEL_TEMPLATE, CH_MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
 
         network = ResNet20().to(device)
         backdoor_network = ResNet20().to(device)
