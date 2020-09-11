@@ -110,14 +110,14 @@ if __name__ == '__main__':
 
         transform = torchvision.transforms.Compose([
                                          torchvision.transforms.CenterCrop(24), 
-                                         torchvision.transforms.ToTensor(), 
+                                         torchvision.transforms.ToTensor(),
                                          torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
         train_set = torchvision.datasets.CIFAR10(root='../data', train=True, download=True, transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform))
 
-        mal_train_loaders = DataLoader(MalDataset(CIFAR_MAL_FEATURE_TEMPLATE, CIFAR_MAL_TRUE_LABEL_TEMPLATE, CIFAR_MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(CIFAR_MAL_FEATURE_TEMPLATE, CIFAR_MAL_TRUE_LABEL_TEMPLATE, CIFAR_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=BATCH_SIZE)
 
         network = ConvNet().to(device)
         backdoor_network = ConvNet().to(device)
@@ -127,7 +127,7 @@ if __name__ == '__main__':
         train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
-        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_TEMPLATE, FASHION_MAL_TRUE_LABEL_TEMPLATE, FASHION_MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_TEMPLATE, FASHION_MAL_TRUE_LABEL_TEMPLATE, FASHION_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=BATCH_SIZE)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
