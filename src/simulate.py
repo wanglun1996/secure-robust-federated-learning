@@ -271,7 +271,7 @@ if __name__ == '__main__':
                     bulyan_local = []
                     for kk in range(len(local_grads)):
                         bulyan_local.append(local_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local,aggsubfunc='krum',f=3)
+                    average_grad[idx] = bulyan(bulyan_local,aggsubfunc='trimmedmean')
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -323,7 +323,7 @@ if __name__ == '__main__':
                     bulyan_local = []
                     for kk in range(len(local_grads)):
                         bulyan_local.append(local_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum', f=3)
+                    average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -332,7 +332,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = False
-        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
+        text_file_name = '../results/' + args.attack + '_' + args.agg + 'trm' + '_' + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
