@@ -151,7 +151,8 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
     mal_param = []
     agent_num = len(local_grads)
     local_param = copy.deepcopy(local_grads)
-    del local_param[mal_index]
+    for i in sorted(mal_index, reverse=True):
+        del local_param[i]
     for p in list(network.parameters()):
         benign_max.append(np.zeros(p.data.shape))
         benign_min.append(np.zeros(p.data.shape))
@@ -201,7 +202,8 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
     average_sign = []
 
     local_param = copy.deepcopy(local_grads)
-    del local_param[mal_index]
+    for i in sorted(mal_index, reverse=True):
+        del local_param[i]
     m = len(local_grads)
     c = len(mal_index)
     d = local_grads[0][param_index].size
