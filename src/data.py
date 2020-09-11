@@ -93,7 +93,9 @@ def gen_mal_data(start=0, end=100, split=0.8):
     return None
 
 def gen_mal_cifar(batch_size=10):
-    test_set = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=None)
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor()])
+    test_set = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform)
     sizes = [batch_size] * (len(test_set) // batch_size)
     test_sets = random_split(test_set, sizes)
     for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
@@ -108,7 +110,9 @@ def gen_mal_cifar(batch_size=10):
         np.save(CIFAR_MAL_TARGET_TEMPLATE, mal_train_labels)
 
 def gen_mal_fashion(batch_size=10):
-    test_set = torchvision.datasets.FashionMNIST(root='../data', train=False, download=True, transform=None)
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor()])
+    test_set = torchvision.datasets.FashionMNIST(root='../data', train=False, download=True, transform=transform)
     sizes = [batch_size] * (len(test_set) // batch_size)
     test_sets = random_split(test_set, sizes)
     for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
