@@ -311,10 +311,12 @@ if __name__ == '__main__':
         np.random.shuffle(index)
         index = index.reshape((args.shard, -1))
         for i in range(index.shape[0]):
-            shard_average_grad = np.zeros(local_grads[0].shape)
-            for j in range(index.shape[1]):
-                shard_average_grad += local_grads[index[i][j]]
-            shard_average_grad /= index.shape[1]
+            shard_average_grad = []
+            for k in range(len(local_grads[0])):
+                shard_average_grad.append(np.zeros(local_grads[0][k].shape))
+                for j in range(index.shape[1]):
+                    shard_average_grad[k] += local_grads[index[i][j]][k]
+                shard_average_grad[k] /= index.shape[1]
             shard_grads.append(shard_average_grad)
 
         # aggregation
