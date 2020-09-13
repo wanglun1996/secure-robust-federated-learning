@@ -151,18 +151,20 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
     mal_param = []
     agent_num = len(local_grads)
     local_param = copy.deepcopy(local_grads)
+    for i in sorted(mal_index, reverse=True):
+        del local_param[i]
     for p in list(network.parameters()):
         benign_max.append(np.zeros(p.data.shape))
         benign_min.append(np.zeros(p.data.shape))
         average_sign.append(np.zeros(p.data.shape))
         mal_param.append(np.zeros(p.data.shape))
     for idx, p in enumerate(average_sign):
-        for c in range(len(local_grads)):
-            average_sign[idx] += local_grads[c][idx]
+        for c in range(len(local_param)):
+            average_sign[idx] += local_param[c][idx]
         average_sign[idx] = np.sign(average_sign[idx])
     for idx, p in enumerate(network.parameters()):
         temp = []
-        for c in range(len(local_grads)):
+        for c in range(len(local_param)):
             local_param[c][idx] = p.data.cpu().numpy() - local_param[c][idx]
             temp.append(local_param[c][idx])
         temp = np.array(temp)
@@ -199,7 +201,9 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
     benign_max = []
     average_sign = []
 
-
+    local_param = copy.deepcopy(local_grads)
+    for i in sorted(mal_index, reverse=True):
+        del local_param[i]
     m = len(local_grads)
     c = len(mal_index)
     d = local_grads[0][param_index].size
@@ -208,8 +212,8 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
         average_sign.append(np.zeros(p.data.shape))
 
     for idx, p in enumerate(average_sign):
-        for c in range(len(local_grads)):
-            average_sign[idx] += local_grads[c][idx]
+        for c in range(len(local_param)):
+            average_sign[idx] += local_param[c][idx]
         average_sign[idx] = np.sign(average_sign[idx])
     min_dis = np.inf
     max_dis = -np.inf
@@ -233,7 +237,7 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
     
     # upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
     upper_bound = 1.0
-    print(upper_bound, d)
+    # print(upper_bound, d)
     lambda1 = upper_bound
 
     if upper_bound < lower_bound:

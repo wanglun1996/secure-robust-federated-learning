@@ -20,6 +20,18 @@ MAL_FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
 MAL_TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
 MAL_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
 
+CIFAR_MAL_FEATURE_TEMPLATE = '../data/cifar_mal_feature_10.npy'
+CIFAR_MAL_TARGET_TEMPLATE = '../data/cifar_mal_target_10.npy'
+CIFAR_MAL_TRUE_LABEL_TEMPLATE = '../data/cifar_mal_true_label_10.npy'
+
+FASHION_MAL_FEATURE_TEMPLATE = '../data/fashion_mal_feature_10.npy'
+FASHION_MAL_TARGET_TEMPLATE = '../data/fashion_mal_target_10.npy'
+FASHION_MAL_TRUE_LABEL_TEMPLATE = '../data/fashion_mal_true_label_10.npy'
+
+CH_MAL_FEATURE_TEMPLATE = '../data/chmnist_mal_feature_10.npy'
+CH_MAL_TARGET_TEMPLATE = '../data/chmnist_mal_target_10.npy'
+CH_MAL_TRUE_LABEL_TEMPLATE = '../data/chmnist_mal_true_label_10.npy'
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -98,12 +110,14 @@ if __name__ == '__main__':
 
         transform = torchvision.transforms.Compose([
                                          torchvision.transforms.CenterCrop(24), 
-                                         torchvision.transforms.ToTensor(), 
+                                         torchvision.transforms.ToTensor(),
                                          torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
         train_set = torchvision.datasets.CIFAR10(root='../data', train=True, download=True, transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform))
+
+        mal_train_loaders = DataLoader(MalDataset(CIFAR_MAL_FEATURE_TEMPLATE, CIFAR_MAL_TRUE_LABEL_TEMPLATE, CIFAR_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=BATCH_SIZE)
 
         network = ConvNet().to(device)
         backdoor_network = ConvNet().to(device)
@@ -113,6 +127,7 @@ if __name__ == '__main__':
         train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
+        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_TEMPLATE, FASHION_MAL_TRUE_LABEL_TEMPLATE, FASHION_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=BATCH_SIZE)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
@@ -124,6 +139,7 @@ if __name__ == '__main__':
         train_set = MyDataset("../data/CHMNIST_TRAIN_FEATURE.npy", "../data/CHMNIST_TRAIN_TARGET.npy", transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(MyDataset("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy", transform=transform), batch_size=BATCH_SIZE)        
+        mal_train_loaders = DataLoader(MalDataset(CH_MAL_FEATURE_TEMPLATE, CH_MAL_TRUE_LABEL_TEMPLATE, CH_MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
 
         network = ResNet20().to(device)
         backdoor_network = ResNet20().to(device)
@@ -271,7 +287,7 @@ if __name__ == '__main__':
                     bulyan_local = []
                     for kk in range(len(local_grads)):
                         bulyan_local.append(local_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local,aggsubfunc='krum',f=3)
+                    average_grad[idx] = bulyan(bulyan_local,aggsubfunc='trimmedmean')
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -323,7 +339,7 @@ if __name__ == '__main__':
                     bulyan_local = []
                     for kk in range(len(local_grads)):
                         bulyan_local.append(local_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum', f=3)
+                    average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -332,7 +348,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = False
-        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
+        text_file_name = '../results/' + args.attack + '_' + args.agg + 'test' + '_' + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:

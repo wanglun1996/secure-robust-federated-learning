@@ -4,8 +4,8 @@ sys.path.append('../infimnist_py')
 import _infimnist as infimnist
 import numpy as np
 import argparse
-from torch.utils.data import Dataset, DataLoader
-
+from torch.utils.data import Dataset, DataLoader, random_split
+import torchvision
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import shuffle
 
@@ -16,6 +16,18 @@ INFIMNIST_TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
 INFIMNIST_MAL_FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
 INFIMNIST_MAL_TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
 INFIMNIST_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
+
+CIFAR_MAL_FEATURE_TEMPLATE = '../data/cifar_mal_feature_10.npy'
+CIFAR_MAL_TARGET_TEMPLATE = '../data/cifar_mal_target_10.npy'
+CIFAR_MAL_TRUE_LABEL_TEMPLATE = '../data/cifar_mal_true_label_10.npy'
+
+FASHION_MAL_FEATURE_TEMPLATE = '../data/fashion_mal_feature_10.npy'
+FASHION_MAL_TARGET_TEMPLATE = '../data/fashion_mal_target_10.npy'
+FASHION_MAL_TRUE_LABEL_TEMPLATE = '../data/fashion_mal_true_label_10.npy'
+
+CH_MAL_FEATURE_TEMPLATE = '../data/chmnist_mal_feature_10.npy'
+CH_MAL_TARGET_TEMPLATE = '../data/chmnist_mal_target_10.npy'
+CH_MAL_TRUE_LABEL_TEMPLATE = '../data/chmnist_mal_true_label_10.npy'
 
 CHMNIST_PATH = "../data/Kather_texture_2016_image_tiles_5000/"
 
@@ -80,6 +92,58 @@ def gen_mal_data(start=0, end=100, split=0.8):
     # np.save(TRUE_LABEL_TEMPLATE%('test', start, end), test_labels)
     return None
 
+def gen_mal_cifar(batch_size=10):
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.CenterCrop(24),
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    test_set = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform)
+    sizes = [batch_size] * (len(test_set) // batch_size)
+    test_sets = random_split(test_set, sizes)
+    for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
+        print(idx)
+        np.save(CIFAR_MAL_FEATURE_TEMPLATE, feature.numpy().transpose([0,3,2,1]))
+        np.save(CIFAR_MAL_TRUE_LABEL_TEMPLATE, target.numpy())
+        mal_train_labels = target.numpy().copy()
+        for i in range(target.shape[0]):
+            allowed_targets = list(range(10))
+            allowed_targets.remove(target[i])
+            mal_train_labels[i] = np.random.choice(allowed_targets)
+        np.save(CIFAR_MAL_TARGET_TEMPLATE, mal_train_labels)
+
+def gen_mal_fashion(batch_size=10):
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor()])
+    test_set = torchvision.datasets.FashionMNIST(root='../data', train=False, download=True, transform=transform)
+    sizes = [batch_size] * (len(test_set) // batch_size)
+    test_sets = random_split(test_set, sizes)
+    for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
+        print(idx)
+        np.save(FASHION_MAL_FEATURE_TEMPLATE, feature.numpy().transpose([0,3,2,1]))
+        np.save(FASHION_MAL_TRUE_LABEL_TEMPLATE, target.numpy())
+        mal_train_labels = target.numpy().copy()
+        for i in range(target.shape[0]):
+            allowed_targets = list(range(10))
+            allowed_targets.remove(target[i])
+            mal_train_labels[i] = np.random.choice(allowed_targets)
+        np.save(FASHION_MAL_TARGET_TEMPLATE, mal_train_labels)
+
+def gen_mal_chmnist(batch_size=10):
+    test_set = MyDataset("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy")
+    sizes = [batch_size] * (len(test_set) // batch_size)
+    test_sets = random_split(test_set, sizes)
+    for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
+        print(idx)
+        np.save(CH_MAL_FEATURE_TEMPLATE, feature.numpy())
+        np.save(CH_MAL_TRUE_LABEL_TEMPLATE, target.numpy())
+        mal_train_labels = target.numpy().copy()
+        for i in range(target.shape[0]):
+            allowed_targets = list(range(8))
+            allowed_targets.remove(target[i])
+            mal_train_labels[i] = np.random.choice(allowed_targets)
+        np.save(CH_MAL_TARGET_TEMPLATE, mal_train_labels)
+
+
 def gen_infimnist(start=0, end=10000, split=0.8):
     mnist = infimnist.InfimnistGenerator()
     indexes = np.array(np.arange(start, end), dtype=np.int64)
@@ -134,12 +198,15 @@ if __name__ == '__main__':
 
     # gen_chmnist()
     
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--size', type=int, default=10000)
-    args = parser.parse_args()
-    gen_infimnist(0, args.size)
-    gen_mal_data(0, 10)
-    """
+    # parser = argparse.ArgumentParser()
+    #  parser.add_argument('--size', type=int, default=10000)
+    # args = parser.parse_args()
+    # gen_infimnist(0, args.size)
+    # gen_mal_data(0, 10)
+    # gen_mal_cifar()
+    # gen_mal_fashion()
+    # gen_chmnist()
+    gen_mal_chmnist()
     # gen_infimnist(0, args.size)
     # dataset_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%(0,100), TARGET_TEMPLATE%(0,100)))
     # examples = enumerate(dataset_loader)
