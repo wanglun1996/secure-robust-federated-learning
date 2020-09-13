@@ -64,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--mal_boost', type=float, default=10.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
+    parser.add_argument('--shard', type=int, default=5)
     args = parser.parse_args()
 
     # FIXME: arrage the order and clean up the unnecessary things
@@ -302,6 +303,20 @@ if __name__ == '__main__':
             for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
 
+        # FIXME: implement sharded secure aggregation here
+        # 1. add an argument showing the shard size
+        # 2. randomly group the difference vectors and average (maybe add secure aggregation if we have time)
+        shard_grads = []
+        index = np.arange(len(local_grads))
+        np.random.shuffle(index)
+        index = index.reshape((args.shard, -1))
+        for i in range(index.shape[0]):
+            shard_average_grad = np.zeros(local_grads[0].shape)
+            for j in range(index.shape[1]):
+                shard_average_grad += local_grads[index[i][j]]
+            shard_average_grad /= index.shape[1]
+            shard_grads.append(shard_average_grad)
+
         # aggregation
         if args.attack != 'modelpoisoning':
             average_grad = []
@@ -309,36 +324,36 @@ if __name__ == '__main__':
                 average_grad.append(np.zeros(p.data.shape))
             if args.agg == 'average':
                 print('agg: average')
-                for c in choices:
+                for shard in range(args.shard):
                     for idx, p in enumerate(average_grad):
-                        average_grad[idx] = p + local_grads[c][idx] / PERROUND
+                        average_grad[idx] = p + local_grads[shard][idx] / args.shard
             elif args.agg == 'krum':
                 print('agg: krum')
                 for idx, _ in enumerate(average_grad):
                     krum_local = []
-                    for kk in range(len(local_grads)):
-                        krum_local.append(local_grads[kk][idx])
+                    for kk in range(len(shard_grads)):
+                        krum_local.append(shard_grads[kk][idx])
                     average_grad[idx], _ = krum(krum_local, f=1)
             elif args.agg == 'filterl2':
                 print('agg: filterl2')
                 for idx, _ in enumerate(average_grad):
                     filterl2_local = []
-                    for kk in range(len(local_grads)):
-                        filterl2_local.append(local_grads[kk][idx])
+                    for kk in range(len(shard_grads)):
+                        filterl2_local.append(shard_grads[kk][idx])
                     average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
             elif args.agg == 'trimmedmean':
                 print('agg: trimmedmean')
                 for idx, _ in enumerate(average_grad):
                     trimmedmean_local = []
-                    for kk in range(len(local_grads)):
-                        trimmedmean_local.append(local_grads[kk][idx])
+                    for kk in range(len(shard_grads)):
+                        trimmedmean_local.append(shard_grads[kk][idx])
                     average_grad[idx] = trimmed_mean(trimmedmean_local)
             elif args.agg == 'bulyan':
                 print('agg: bulyan')
                 for idx, _ in enumerate(average_grad):
                     bulyan_local = []
-                    for kk in range(len(local_grads)):
-                        bulyan_local.append(local_grads[kk][idx])
+                    for kk in range(len(shard_grads)):
+                        bulyan_local.append(shard_grads[kk][idx])
                     average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
 
         params = list(network.parameters())
