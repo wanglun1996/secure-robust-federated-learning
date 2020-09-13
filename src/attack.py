@@ -196,8 +196,6 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
     return local_grads
 
 def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, upper_bound=1e-3):
-    benign_max = []
-    average_sign = []
 
     local_param = copy.deepcopy(local_grads)
     for i in sorted(mal_index, reverse=True):
@@ -205,14 +203,14 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
     m = len(local_grads)
     c = len(mal_index)
     d = local_grads[0][param_index].size
-    for p in list(network.parameters()):
-        benign_max.append(np.zeros(p.data.shape))
-        average_sign.append(np.zeros(p.data.shape))
 
-    for idx, p in enumerate(average_sign):
-        for c in range(len(local_param)):
-            average_sign[idx] += local_param[c][idx]
-        average_sign[idx] = np.sign(average_sign[idx])
+    average_sign = np.zeros(list(network.parameters())[param_index].data.shape)
+    benign_max = np.zeros(list(network.parameters())[param_index].data.shape)
+
+
+    for c in range(len(local_param)):
+        average_sign += local_param[c][param_index]
+    average_sign  = np.sign(average_sign)
     min_dis = np.inf
     max_dis = -np.inf
     for i in range(m):
@@ -226,7 +224,7 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
                     continue
                 else:
                     temp_min_dis += distance.euclidean(local_grads[i][param_index].flatten(), local_grads[j][param_index].flatten())
-        temp_max_dis += distance.euclidean(local_grads[i][param_index].flatten(), benign_max[param_index].flatten())
+        temp_max_dis += distance.euclidean(local_grads[i][param_index].flatten(), benign_max.flatten())
 
         if temp_min_dis < min_dis:
             min_dis = temp_min_dis
@@ -246,7 +244,7 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
         for kk in range(len(local_grads)):
             krum_local.append(local_grads[kk][param_index])
         for kk in mal_index:
-            krum_local[kk] = -lambda1 * average_sign[param_index]
+            krum_local[kk] = -lambda1 * average_sign
         _, choose_index = krum(krum_local, f=1)
         if choose_index in mal_index:
             break
@@ -257,9 +255,9 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
             lambda1 /= 2.0
     
     for kk in mal_index:
-        local_grads[kk][param_index] = -lambda1 * average_sign[param_index]
+        local_grads[kk][param_index] = -lambda1 * average_sign
     # print(average_sign[param_index])
-    
+
     return local_grads
 
 def bulyan_attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, upper_bound=1e-3, target_layer=0, target_idx=0):
