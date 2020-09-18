@@ -65,6 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
     parser.add_argument('--shard', type=int, default=5)
+    parser.add_argument('--plot', type=str, default='test')
     args = parser.parse_args()
 
     # FIXME: arrage the order and clean up the unnecessary things
@@ -182,13 +183,6 @@ if __name__ == '__main__':
         print("Epoch: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
 
-#     adv_flag = False
-#     for epoch in range(EPOCH):  
-#         # select workers per subset 
-#         print("Epoch: ", epoch)
-#         adv_flag = False
-#         choices = np.random.choice(NWORKER, PERROUND)
-
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
@@ -257,38 +251,6 @@ if __name__ == '__main__':
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
             np.save('../checkpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
-            if args.agg == 'average':
-                print('agg: average')
-                for idx, p in enumerate(average_grad):
-                    average_grad[idx] = p + local_grads[args.mal_index[0]][idx] / PERROUND
-            elif args.agg == 'krum':
-                print('agg: krum')
-                for idx, _ in enumerate(average_grad):
-                    # print(local_grads[0][idx].shape,local_grads[1][idx].shape)
-                    krum_local = []
-                    for kk in range(len(local_grads)):
-                        krum_local.append(local_grads[kk][idx])
-                    average_grad[idx], _ = krum(krum_local, f=1)
-            elif args.agg == 'median':
-                for idx, _ in enumerate(average_grad):
-                    median_local = []
-                    for kk in range(len(local_grads)):
-                        median_local.append(local_grads[kk][idx])
-                    average_grad[idx] = geometric_median(median_local)
-            elif args.agg == 'filterl2':
-                print('agg: filterl2')
-                for idx, _ in enumerate(average_grad):
-                    filter_local = []
-                    for kk in range(len(local_grads)):
-                        filter_local.append(local_grads[kk][idx])
-                    average_grad[idx] = filterL2(filter_local,sigma=SIGMA2)
-            elif args.agg == 'bulyan':
-                print('agg: bulyan')
-                for idx, _ in enumerate(average_grad):
-                    bulyan_local = []
-                    for kk in range(len(local_grads)):
-                        bulyan_local.append(local_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local,aggsubfunc='trimmedmean')
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -320,43 +282,42 @@ if __name__ == '__main__':
             shard_grads.append(shard_average_grad)
 
         # aggregation
-        if args.attack != 'modelpoisoning':
-            average_grad = []
-            for p in list(network.parameters()):
-                average_grad.append(np.zeros(p.data.shape))
-            if args.agg == 'average':
-                print('agg: average')
-                for shard in range(args.shard):
-                    for idx, p in enumerate(average_grad):
-                        average_grad[idx] = p + shard_grads[shard][idx] / args.shard
-            elif args.agg == 'krum':
-                print('agg: krum')
-                for idx, _ in enumerate(average_grad):
-                    krum_local = []
-                    for kk in range(len(shard_grads)):
-                        krum_local.append(shard_grads[kk][idx])
-                    average_grad[idx], _ = krum(krum_local, f=1)
-            elif args.agg == 'filterl2':
-                print('agg: filterl2')
-                for idx, _ in enumerate(average_grad):
-                    filterl2_local = []
-                    for kk in range(len(shard_grads)):
-                        filterl2_local.append(shard_grads[kk][idx])
-                    average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
-            elif args.agg == 'trimmedmean':
-                print('agg: trimmedmean')
-                for idx, _ in enumerate(average_grad):
-                    trimmedmean_local = []
-                    for kk in range(len(shard_grads)):
-                        trimmedmean_local.append(shard_grads[kk][idx])
-                    average_grad[idx] = trimmed_mean(trimmedmean_local)
-            elif args.agg == 'bulyan':
-                print('agg: bulyan')
-                for idx, _ in enumerate(average_grad):
-                    bulyan_local = []
-                    for kk in range(len(shard_grads)):
-                        bulyan_local.append(shard_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
+        average_grad = []
+        for p in list(network.parameters()):
+            average_grad.append(np.zeros(p.data.shape))
+        if args.agg == 'average':
+            print('agg: average')
+            for shard in range(args.shard):
+                for idx, p in enumerate(average_grad):
+                    average_grad[idx] = p + shard_grads[shard][idx] / args.shard
+        elif args.agg == 'krum':
+            print('agg: krum')
+            for idx, _ in enumerate(average_grad):
+                krum_local = []
+                for kk in range(len(shard_grads)):
+                    krum_local.append(shard_grads[kk][idx])
+                average_grad[idx], _ = krum(krum_local, f=1)
+        elif args.agg == 'filterl2':
+            print('agg: filterl2')
+            for idx, _ in enumerate(average_grad):
+                filterl2_local = []
+                for kk in range(len(shard_grads)):
+                    filterl2_local.append(shard_grads[kk][idx])
+                average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
+        elif args.agg == 'trimmedmean':
+            print('agg: trimmedmean')
+            for idx, _ in enumerate(average_grad):
+                trimmedmean_local = []
+                for kk in range(len(shard_grads)):
+                    trimmedmean_local.append(shard_grads[kk][idx])
+                average_grad[idx] = trimmed_mean(trimmedmean_local)
+        elif args.agg == 'bulyan':
+            print('agg: bulyan')
+            for idx, _ in enumerate(average_grad):
+                bulyan_local = []
+                for kk in range(len(shard_grads)):
+                    bulyan_local.append(shard_grads[kk][idx])
+                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -364,8 +325,8 @@ if __name__ == '__main__':
                 grad = torch.from_numpy(average_grad[idx]).to(device)
                 params[idx].data.sub_(grad)
         
-        adv_flag = False
-        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + 'krum' + args.dataset + '.txt'
+        adv_flag = args.mal
+        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
@@ -383,7 +344,6 @@ if __name__ == '__main__':
             test_loss /= len(test_loader.dataset)
             txt_file.write('%d, \t%f, \t%f\n'%(epoch, test_loss, 100. * correct / len(test_loader.dataset)))
             print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
-
 
         if args.attack == 'modelpoisoning' and args.mal == True:
             
