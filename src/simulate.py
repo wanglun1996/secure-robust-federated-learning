@@ -61,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--mal', type=bool, default=True)
     parser.add_argument('--mal_num', type=int, default=1)
     parser.add_argument('--mal_index', default=[0,1,2,3,4])
-    parser.add_argument('--mal_boost', type=float, default=10.0)
+    parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
     parser.add_argument('--shard', type=int, default=5)
