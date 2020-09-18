@@ -348,7 +348,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = False
-        text_file_name = '../results/' + args.attack + '_' + args.agg + 'test' + '_' + args.dataset + '.txt'
+        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + 'krum' + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
