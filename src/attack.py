@@ -40,13 +40,13 @@ def benign_train(mal_train_loaders, network, criterion, optimizer, params_copy, 
     return local_grads
 
 # return the grad at previous round
-def est_accuracy(mal_visible, t):
+def est_accuracy(mal_visible, t, path):
     delta_other_prev = None
 
     if len(mal_visible) >= 1:
         mal_prev_t = mal_visible[-1]
         # print('Loading from previous iteration %s' % mal_prev_t)
-        delta_other_prev = np.load('../FMcheckpoints/' + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
+        delta_other_prev = np.load('../fashioncheckpoints/' + path + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
         delta_other_prev /= (t - mal_prev_t)
     
     return delta_other_prev
@@ -70,14 +70,14 @@ def weight_constrain(loss1, network, constrain_weights, t, device):
 
     return loss
 
-def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, params_copy, device, mal_visible, t, dist=True, mal_boost=1):
+def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, params_copy, device, mal_visible, t, dist=True, mal_boost=1, path=None):
     start_weights = params_copy.copy()
     constrain_weights = []
 
     for p in list(network.parameters()):
         constrain_weights.append(np.zeros(p.data.shape))
 
-    delta_other_prev = est_accuracy(mal_visible, t)
+    delta_other_prev = est_accuracy(mal_visible, t, path)
 
     # Add benign estimation
     if len(mal_visible) >= 1:

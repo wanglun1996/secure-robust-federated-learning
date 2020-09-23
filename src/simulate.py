@@ -37,11 +37,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='1')
     parser.add_argument('--dataset', default='INFIMNIST')
-    parser.add_argument('--nworker', type=int, default=20)
-    parser.add_argument('--perround', type=int, default=20)
+    parser.add_argument('--nworker', type=int, default=100)
+    parser.add_argument('--perround', type=int, default=100)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=30) 
-    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
     # L2 Norm bound for clipping gradient
@@ -60,11 +60,11 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--mal', type=bool, default=True)
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0,1,2,3,4])
+    parser.add_argument('--mal_index', default=[0,1,2,3,4,5,6,7,8,9])
     parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
-    parser.add_argument('--shard', type=int, default=20)
+    parser.add_argument('--shard', type=int, default=25)
     parser.add_argument('--plot', type=str, default='test')
     args = parser.parse_args()
 
@@ -199,7 +199,7 @@ if __name__ == '__main__':
                     for p in list(network.parameters()):
                         params_temp.append(p.clone())
                     
-                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True, mal_boost=args.mal_boost)
+                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True, mal_boost=args.mal_boost, path=args.agg)
                 
                     for idx, p in enumerate(local_grads[c]):
                         local_grads[c][idx] = p + delta_mal[idx]
@@ -250,7 +250,7 @@ if __name__ == '__main__':
                 if c not in args.mal_index:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
-            np.save('../FMcheckpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
+            np.save('../shardfashcheckpoints/' + args.agg + 'ben_delta_t%s.npy' % epoch, average_grad)
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -318,7 +318,7 @@ if __name__ == '__main__':
                 bulyan_local = []
                 for kk in range(len(shard_grads)):
                     bulyan_local.append(shard_grads[kk][idx])
-                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
+                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -327,7 +327,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = args.mal
-        text_file_name = '../newresults/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
+        text_file_name = '../shardfashionresults/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
