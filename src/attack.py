@@ -46,7 +46,7 @@ def est_accuracy(mal_visible, t):
     if len(mal_visible) >= 1:
         mal_prev_t = mal_visible[-1]
         # print('Loading from previous iteration %s' % mal_prev_t)
-        delta_other_prev = np.load('../checkpoints/' + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
+        delta_other_prev = np.load('../FMcheckpoints/' + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
         delta_other_prev /= (t - mal_prev_t)
     
     return delta_other_prev
@@ -169,7 +169,7 @@ def attack_trimmedmean(network, local_grads, mal_index, b=2):
         for aver_sign, b_max, b_min, mal_p in np.nditer([p, benign_max[idx], benign_min[idx], mal_param[idx]], op_flags=['readwrite']):
             # print(b_max, b_min)
             # FIXME: may not correct
-            if aver_sign > 0:
+            if aver_sign < 0:
                 if b_min > 0:
                     mal_p[...] = random.uniform(b_min/b, b_min)
                 else:
@@ -239,6 +239,7 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
             krum_local[kk] = -lambda1 * average_sign
         _, choose_index = krum(krum_local, f=1)
         if choose_index in mal_index:
+            print('found a lambda')
             break
         elif lambda1 < lower_bound:
             print(choose_index, 'Failed to find a proper lambda!')

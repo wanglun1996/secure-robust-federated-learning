@@ -64,7 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
-    parser.add_argument('--shard', type=int, default=5)
+    parser.add_argument('--shard', type=int, default=20)
     parser.add_argument('--plot', type=str, default='test')
     args = parser.parse_args()
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
         # select workers per subset 
         print("Epoch: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
-
+        # print(choices)
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
@@ -250,7 +250,7 @@ if __name__ == '__main__':
                 if c not in args.mal_index:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
-            np.save('../checkpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
+            np.save('../FMcheckpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -280,6 +280,7 @@ if __name__ == '__main__':
                     shard_average_grad[k] += local_grads[index[i][j]][k]
                 shard_average_grad[k] /= index.shape[1]
             shard_grads.append(shard_average_grad)
+        print(len(shard_grads))
 
         # aggregation
         average_grad = []
@@ -326,7 +327,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = args.mal
-        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
+        text_file_name = '../newresults/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:

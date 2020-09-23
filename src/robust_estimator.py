@@ -223,7 +223,7 @@ def bulyan_one_coordinate(arr, beta):
     median_beta_neighbors = arr[np.argsort(distances)[:beta]]
     return np.mean(median_beta_neighbors)
 
-def bulyan(grads, aggsubfunc='trimmedmean', f=2):
+def bulyan(grads, aggsubfunc='trimmedmean', f=1):
     samples = np.array(grads)
     feature_shape = grads[0].shape
     samples_flatten = []
