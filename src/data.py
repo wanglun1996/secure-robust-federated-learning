@@ -160,6 +160,29 @@ def gen_infimnist(start=0, end=10000, split=0.8):
     np.save(INFIMNIST_FEATURE_TEMPLATE%('test', start, end), test_digits)
     np.save(INFIMNIST_TARGET_TEMPLATE%('test', start, end), test_labels)
 
+def gen_hetero(start=0, end=60000, split =0.8):
+    mnist = infimnist.InfimnistGenerator()
+    indexes = np.array(np.arange(start, end), dtype=np.int64)
+    digits, labels = mnist.gen(indexes)
+    digits = digits.astype(np.float32).reshape(-1, 28, 28)
+    sidx = int(end * split)
+    train_digits = digits[:sidx]
+    test_digits = digits[sidx:]
+    train_labels = labels[:sidx]
+    test_labels = labels[sidx:]
+    hetero_data = [[]*10]
+    for i in range(train_labels.shape[0]):
+        hetero_data[train_labels[i]].append(train_digits[i])
+    for i in range(10):
+        hetero_data[i] = np.array(hetero_data[i])
+        print(hetero_data.shape)
+    # print(digits.shape)
+    # np.save(INFIMNIST_FEATURE_TEMPLATE%('train', start, end), train_digits)
+    # np.save(INFIMNIST_TARGET_TEMPLATE%('train', start, end), train_labels)
+    # np.save(INFIMNIST_FEATURE_TEMPLATE%('test', start, end), test_digits)
+    # np.save(INFIMNIST_TARGET_TEMPLATE%('test', start, end), test_labels)
+
+
 def gen_chmnist(split=0.8):
     x = []
     y = []
