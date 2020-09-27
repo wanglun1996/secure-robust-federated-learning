@@ -130,6 +130,43 @@ if __name__ == '__main__':
                     loss = criterion(output, target)
                     loss.backward()
                     optimizer.step()
+                    if idx > len(train_loaders) / 4:
+                        break
+                for idx, (feature, target) in enumerate(train_loaders[(c+1) % 10], 0):
+                    if idx < len(train_loaders[(c+1) % 10]) / 4:
+                        continue
+                    feature = feature.to(device)
+                    target = target.type(torch.long).to(device)
+                    optimizer.zero_grad()
+                    output = network(feature)
+                    loss = criterion(output, target)
+                    loss.backward()
+                    optimizer.step()
+                    if idx > len(train_loaders) / 4 * 2:
+                        break
+                for idx, (feature, target) in enumerate(train_loaders[(c+2) % 10], 0):
+                    if idx < len(train_loaders[(c+2) % 10]) / 4 * 2:
+                        continue
+                    feature = feature.to(device)
+                    target = target.type(torch.long).to(device)
+                    optimizer.zero_grad()
+                    output = network(feature)
+                    loss = criterion(output, target)
+                    loss.backward()
+                    optimizer.step()
+                    if idx > len(train_loaders) / 4 * 3:
+                        break
+                for idx, (feature, target) in enumerate(train_loaders[(c+3) % 10], 0):
+                    if idx < len(train_loaders[(c+2) % 10]) / 4 * 3:
+                        continue
+                    feature = feature.to(device)
+                    target = target.type(torch.long).to(device)
+                    optimizer.zero_grad()
+                    output = network(feature)
+                    loss = criterion(output, target)
+                    loss.backward()
+                    optimizer.step()
+
             for idx, p in enumerate(network.parameters()):
                 local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
             with torch.no_grad():
