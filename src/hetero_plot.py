@@ -68,7 +68,7 @@ if __name__ == '__main__':
     INTERVAL = QUANTIZE_BOUND / (LEVEL-1)
     GROUP_ORDER = args.grouporder
     NBIT = np.ceil(np.log2(GROUP_ORDER))
-    SIGMA2 = args.sigma2
+    # SIGMA2 = args.sigma2
 
     if DATASET == 'INFIMNIST':
 
@@ -153,20 +153,23 @@ if __name__ == '__main__':
         for kk in range(len(local_grads)):
             flat_local_grads = []
             for pp in range(len(local_grads[kk])):
-                flat_local_grads.append(local_grads[kk][pp].flatten())
+                flat_local_grads.extend(list(local_grads[kk][pp].flatten()))
             flat_local_grads = np.array(flat_local_grads)
-            x_axis = np.arange(flat_local_grads.shape[1])
-            plt.scatter(x_axis, flat_local_grads)
+            print(flat_local_grads.shape)
+            x_axis = np.arange(flat_local_grads.shape[0])
+            plt.figure()
+            plt.scatter(x_axis, flat_local_grads, s=10)
             fig_path = '../fig/before_shard_epoch_' + str(epoch) + '_' + str(kk) + '.png'
             plt.savefig(fig_path)
         
         for kk in range(len(shard_grads)):
             flat_shard_grads = []
             for pp in range(len(shard_grads[kk])):
-                flat_shard_grads.append(shard_grads[kk][pp].flatten())
+                flat_shard_grads.extend(list(shard_grads[kk][pp].flatten()))
             flat_shard_grads = np.array(flat_shard_grads)
-            x_axis = np.arange(flat_shard_grads.shape[1])
-            plt.scatter(x_axis, flat_shard_grads)
+            x_axis = np.arange(flat_shard_grads.shape[0])
+            plt.figure()
+            plt.scatter(x_axis, flat_shard_grads, s=10)
             fig_path = '../fig/after_shard_epoch' + str(epoch) + '_' + str(kk) + '.png'
             plt.savefig(fig_path)
 
