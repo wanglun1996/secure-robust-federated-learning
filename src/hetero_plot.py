@@ -22,11 +22,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='1')
     parser.add_argument('--dataset', default='INFIMNIST')
-    parser.add_argument('--nworker', type=int, default=10)
-    parser.add_argument('--perround', type=int, default=10)
+    parser.add_argument('--nworker', type=int, default=25)
+    parser.add_argument('--perround', type=int, default=25)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=1) 
-    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
     # L2 Norm bound for clipping gradient
@@ -122,18 +122,55 @@ if __name__ == '__main__':
             params_copy.append(p.clone())
         for c in choices:
             for iepoch in range(0, LOCALITER):
-                for idx, (feature, target) in enumerate(train_loaders[c], 0):
-                    feature = feature.to(device)
-                    target = target.type(torch.long).to(device)
-                    optimizer.zero_grad()
-                    output = network(feature)
-                    loss = criterion(output, target)
-                    loss.backward()
-                    optimizer.step()
-                    if idx > len(train_loaders) / 4:
-                        break
-                for idx, (feature, target) in enumerate(train_loaders[(c+1) % 10], 0):
-                    if idx < len(train_loaders[(c+1) % 10]) / 4:
+                # for idx, (feature, target) in enumerate(train_loaders[c], 0):
+                #     feature = feature.to(device)
+                #     target = target.type(torch.long).to(device)
+                #     optimizer.zero_grad()
+                #     output = network(feature)
+                #     loss = criterion(output, target)
+                #     loss.backward()
+                #     optimizer.step()
+                #     if idx > len(train_loaders) / 4:
+                #         break
+                # for idx, (feature, target) in enumerate(train_loaders[(c+1) % 10], 0):
+                #     if idx < len(train_loaders[(c+1) % 10]) / 4:
+                #         continue
+                #     feature = feature.to(device)
+                #     target = target.type(torch.long).to(device)
+                #     optimizer.zero_grad()
+                #     output = network(feature)
+                #     loss = criterion(output, target)
+                #     loss.backward()
+                #     optimizer.step()
+                #     if idx > len(train_loaders) / 4 * 2:
+                #         break
+                # for idx, (feature, target) in enumerate(train_loaders[(c+2) % 10], 0):
+                #     if idx < len(train_loaders[(c+2) % 10]) / 4 * 2:
+                #         continue
+                #     feature = feature.to(device)
+                #     target = target.type(torch.long).to(device)
+                #     optimizer.zero_grad()
+                #     output = network(feature)
+                #     loss = criterion(output, target)
+                #     loss.backward()
+                #     optimizer.step()
+                #     if idx > len(train_loaders) / 4 * 3:
+                #         break
+                # for idx, (feature, target) in enumerate(train_loaders[(c+3) % 10], 0):
+                #     if idx < len(train_loaders[(c+2) % 10]) / 4 * 3:
+                #         continue
+                #     feature = feature.to(device)
+                #     target = target.type(torch.long).to(device)
+                #     optimizer.zero_grad()
+                #     output = network(feature)
+                #     loss = criterion(output, target)
+                #     loss.backward()
+                #     optimizer.step()
+
+                data_index = (c * 2) % 10
+                data_part = c // 5
+                for idx, (feature, target) in enumerate(train_loaders[data_index], 0):
+                    if idx < len(train_loaders) / 5 * data_part:
                         continue
                     feature = feature.to(device)
                     target = target.type(torch.long).to(device)
@@ -142,10 +179,11 @@ if __name__ == '__main__':
                     loss = criterion(output, target)
                     loss.backward()
                     optimizer.step()
-                    if idx > len(train_loaders) / 4 * 2:
+                    if idx > len(train_loaders) / 5 * (data_part + 1):
                         break
-                for idx, (feature, target) in enumerate(train_loaders[(c+2) % 10], 0):
-                    if idx < len(train_loaders[(c+2) % 10]) / 4 * 2:
+                data_index += 1
+                for idx, (feature, target) in enumerate(train_loaders[data_index], 0):
+                    if idx < len(train_loaders) / 5 * data_part:
                         continue
                     feature = feature.to(device)
                     target = target.type(torch.long).to(device)
@@ -154,18 +192,9 @@ if __name__ == '__main__':
                     loss = criterion(output, target)
                     loss.backward()
                     optimizer.step()
-                    if idx > len(train_loaders) / 4 * 3:
+                    if idx > len(train_loaders) / 5 * (data_part + 1):
                         break
-                for idx, (feature, target) in enumerate(train_loaders[(c+3) % 10], 0):
-                    if idx < len(train_loaders[(c+2) % 10]) / 4 * 3:
-                        continue
-                    feature = feature.to(device)
-                    target = target.type(torch.long).to(device)
-                    optimizer.zero_grad()
-                    output = network(feature)
-                    loss = criterion(output, target)
-                    loss.backward()
-                    optimizer.step()
+
 
             for idx, p in enumerate(network.parameters()):
                 local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
@@ -186,29 +215,32 @@ if __name__ == '__main__':
                 shard_average_grad[k] /= index.shape[1]
             shard_grads.append(shard_average_grad)
         print(len(shard_grads))
-
-        for kk in range(len(local_grads)):
+        plt.figure()
+        for kk in range(5):
             flat_local_grads = []
-            for pp in range(len(local_grads[kk])):
-                flat_local_grads.extend(list(local_grads[kk][pp].flatten()))
+            # for pp in range(len(local_grads[kk])):
+            #     flat_local_grads.extend(list(local_grads[kk][pp].flatten()))
+            flat_local_grads.extend(list(local_grads[kk][2].flatten()))
             flat_local_grads = np.array(flat_local_grads)
             print(flat_local_grads.shape)
-            x_axis = np.arange(flat_local_grads.shape[0])
-            plt.figure()
-            plt.scatter(x_axis, flat_local_grads, s=10)
-            fig_path = '../fig/before_shard_epoch_' + str(epoch) + '_' + str(kk) + '.png'
-            plt.savefig(fig_path)
-        
+            # x_axis = np.arange(flat_local_grads.shape[0])
+            
+            # plt.scatter(x_axis, flat_local_grads, s=10)
+            plt.hist(flat_local_grads, bins=50, kind='kde')
+        fig_path = '../fig/before_shard_epoch_' + str(epoch) + '.png'
+        plt.savefig(fig_path)
+        plt.figure()
         for kk in range(len(shard_grads)):
             flat_shard_grads = []
-            for pp in range(len(shard_grads[kk])):
-                flat_shard_grads.extend(list(shard_grads[kk][pp].flatten()))
+            # for pp in range(len(shard_grads[kk])):
+            #     flat_shard_grads.extend(list(shard_grads[kk][pp].flatten()))
+            flat_shard_grads.extend(list(shard_grads[kk][2].flatten()))
             flat_shard_grads = np.array(flat_shard_grads)
-            x_axis = np.arange(flat_shard_grads.shape[0])
-            plt.figure()
-            plt.scatter(x_axis, flat_shard_grads, s=10)
-            fig_path = '../fig/after_shard_epoch' + str(epoch) + '_' + str(kk) + '.png'
-            plt.savefig(fig_path)
+            # x_axis = np.arange(flat_shard_grads.shape[0])
+            # plt.scatter(x_axis, flat_shard_grads, s=10)
+            plt.hist(flat_shard_grads, bins=50, kind='kde')
+        fig_path = '../fig/after_shard_epoch_' + str(epoch) + '.png'
+        plt.savefig(fig_path)
 
         average_grad = []
 
