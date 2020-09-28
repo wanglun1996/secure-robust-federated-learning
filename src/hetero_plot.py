@@ -13,6 +13,7 @@ from robust_estimator import krum, geometric_median, filterL2, trimmed_mean, bul
 import random
 from backdoor import backdoor
 from matplotlib import pyplot as plt 
+import seaborn as sns
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
@@ -24,9 +25,9 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='INFIMNIST')
     parser.add_argument('--nworker', type=int, default=25)
     parser.add_argument('--perround', type=int, default=25)
-    parser.add_argument('--localiter', type=int, default=5)
+    parser.add_argument('--localiter', type=int, default=1)
     parser.add_argument('--epoch', type=int, default=1) 
-    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--lr', type=float, default=1e-2)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
     # L2 Norm bound for clipping gradient
@@ -47,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--mal_index', default=[0,1,2,3,4,5,6,7,8,9])
     parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='average')
-    parser.add_argument('--shard', type=int, default=2)
+    parser.add_argument('--shard', type=int, default=5)
     args = parser.parse_args()
 
     # FIXME: arrage the order and clean up the unnecessary things
@@ -117,7 +118,8 @@ if __name__ == '__main__':
     for epoch in range(EPOCH):
         print("Epoch: ", epoch)
         params_copy = []
-        choices = np.random.choice(NWORKER, PERROUND, replace=False)
+        # choices = np.random.choice(NWORKER, PERROUND, replace=False)
+        choices = np.arange(NWORKER)
         for p in list(network.parameters()):
             params_copy.append(p.clone())
         for c in choices:
@@ -169,8 +171,10 @@ if __name__ == '__main__':
 
                 data_index = (c * 2) % 10
                 data_part = c // 5
+                print(data_index)
+                print(data_part)
                 for idx, (feature, target) in enumerate(train_loaders[data_index], 0):
-                    if idx < len(train_loaders) / 5 * data_part:
+                    if idx < len(train_loaders[data_index]) / 5 * data_part:
                         continue
                     feature = feature.to(device)
                     target = target.type(torch.long).to(device)
@@ -179,11 +183,12 @@ if __name__ == '__main__':
                     loss = criterion(output, target)
                     loss.backward()
                     optimizer.step()
-                    if idx > len(train_loaders) / 5 * (data_part + 1):
+                    if idx > len(train_loaders[data_index]) / 5 * (data_part + 1):
+                        # print(idx)
                         break
                 data_index += 1
                 for idx, (feature, target) in enumerate(train_loaders[data_index], 0):
-                    if idx < len(train_loaders) / 5 * data_part:
+                    if idx < len(train_loaders[data_index]) / 5 * data_part:
                         continue
                     feature = feature.to(device)
                     target = target.type(torch.long).to(device)
@@ -192,7 +197,7 @@ if __name__ == '__main__':
                     loss = criterion(output, target)
                     loss.backward()
                     optimizer.step()
-                    if idx > len(train_loaders) / 5 * (data_part + 1):
+                    if idx > len(train_loaders[data_index]) / 5 * (data_part + 1):
                         break
 
 
@@ -204,7 +209,7 @@ if __name__ == '__main__':
 
         shard_grads = []
         index = np.arange(len(local_grads))
-        np.random.shuffle(index)
+        # np.random.shuffle(index)
         index = index.reshape((args.shard, -1))
         for i in range(index.shape[0]):
             shard_average_grad = []
@@ -216,29 +221,35 @@ if __name__ == '__main__':
             shard_grads.append(shard_average_grad)
         print(len(shard_grads))
         plt.figure()
-        for kk in range(5):
+        for kk in range(15,20):
+            print(kk)
             flat_local_grads = []
             # for pp in range(len(local_grads[kk])):
-            #     flat_local_grads.extend(list(local_grads[kk][pp].flatten()))
+                # flat_local_grads.extend(list(local_grads[kk][pp].flatten()))
             flat_local_grads.extend(list(local_grads[kk][2].flatten()))
             flat_local_grads = np.array(flat_local_grads)
             print(flat_local_grads.shape)
             # x_axis = np.arange(flat_local_grads.shape[0])
-            
+            # plt.figure()
             # plt.scatter(x_axis, flat_local_grads, s=10)
-            plt.hist(flat_local_grads, bins=50, kind='kde')
+            # plt.hist(flat_local_grads, bins=20, histtype='stepfilled', range=(3,10))
+            A = sns.kdeplot(flat_local_grads, clip=(-10.0, 25.0))
+            print(A.get_lines()[-1].get_data())
         fig_path = '../fig/before_shard_epoch_' + str(epoch) + '.png'
         plt.savefig(fig_path)
         plt.figure()
         for kk in range(len(shard_grads)):
             flat_shard_grads = []
             # for pp in range(len(shard_grads[kk])):
-            #     flat_shard_grads.extend(list(shard_grads[kk][pp].flatten()))
+                # flat_shard_grads.extend(list(shard_grads[kk][pp].flatten()))
             flat_shard_grads.extend(list(shard_grads[kk][2].flatten()))
             flat_shard_grads = np.array(flat_shard_grads)
             # x_axis = np.arange(flat_shard_grads.shape[0])
             # plt.scatter(x_axis, flat_shard_grads, s=10)
-            plt.hist(flat_shard_grads, bins=50, kind='kde')
+            # plt.figure()
+            # plt.hist(flat_shard_grads, bins=20, histtype='stepfilled', range=(3,10))
+            B = sns.kdeplot(flat_shard_grads, clip=(-10.0, 25.0))
+            print(B.get_lines()[-1].get_data())
         fig_path = '../fig/after_shard_epoch_' + str(epoch) + '.png'
         plt.savefig(fig_path)
 
