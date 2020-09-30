@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, geometric_median, filterL2, trimmed_mean, bulyan
+from robust_estimator import krum, filterL2, trimmed_mean, bulyan
 import random
 from backdoor import backdoor
 
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--sigma2', type=float, default=1e-6)
 
     # Malicious agent setting
-    parser.add_argument('--mal', type=bool, default=True)
+    parser.add_argument('--mal', action='store_true')
     parser.add_argument('--mal_num', type=int, default=1)
     parser.add_argument('--mal_index', default=[0,1,2,3,4])
     parser.add_argument('--mal_boost', type=float, default=2.0)

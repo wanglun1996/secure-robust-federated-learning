@@ -211,7 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--size', type=int, default=60000)
     args = parser.parse_args()
     gen_infimnist(0, args.size)
-    gen_mal_data(0, 10)
+    gen_mal_data(60000, 60010)
     gen_chmnist()
     gen_mal_fashion()
 
