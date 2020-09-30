@@ -1,3 +1,7 @@
+'''
+    Network for several datasets.
+'''
+
 import torch
 from torch import nn, optim, hub
 import torch.nn.functional as F

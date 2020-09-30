@@ -1,3 +1,7 @@
+'''
+    The simulation program for Federated Learning.
+'''
+
 import argparse
 import numpy as np
 import torch
@@ -44,18 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
-    # L2 Norm bound for clipping gradient
-    parser.add_argument('--clipbound', type=float, default=1.)
-    # The number of levels for quantization and the L_inf bound for quantization
-    parser.add_argument('--quanlevel', type=int, default=2*10+1)
-    parser.add_argument('--quanbound', type=float, default=1.)
-    # The size of the additive group used in secure aggregation
-    parser.add_argument('--grouporder', type=int, default=512)
-    # The variance of the discrete Gaussian noise
     parser.add_argument('--sigma2', type=float, default=1e-6)
-    parser.add_argument('--momentum')
-    parser.add_argument('--weightdecay')
-    parser.add_argument('--network')
 
     # Malicious agent setting
     parser.add_argument('--mal', type=bool, default=True)
@@ -65,10 +58,9 @@ if __name__ == '__main__':
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
     parser.add_argument('--shard', type=int, default=20)
-    parser.add_argument('--plot', type=str, default='test')
+    parser.add_argument('--plot', type=str, default='_')
     args = parser.parse_args()
 
-    # FIXME: arrage the order and clean up the unnecessary things
     DEVICE = "cuda:" + args.device
     device = torch.device(DEVICE if torch.cuda.is_available() else "cpu")
     DATASET = args.dataset
@@ -80,12 +72,6 @@ if __name__ == '__main__':
     BATCH_SIZE = args.batchsize
     params = {'batch_size': BATCH_SIZE, 'shuffle': True}
     CHECK_POINT = args.checkpoint
-    CLIP_BOUND = args.clipbound
-    LEVEL = args.quanlevel
-    QUANTIZE_BOUND = args.quanbound
-    INTERVAL = QUANTIZE_BOUND / (LEVEL-1)
-    GROUP_ORDER = args.grouporder
-    NBIT = np.ceil(np.log2(GROUP_ORDER))
     SIGMA2 = args.sigma2
 
     if DATASET == 'INFIMNIST':
@@ -95,7 +81,6 @@ if __name__ == '__main__':
                                        torchvision.transforms.Normalize(
                                          (0.1307,), (0.3081,))])
 
-        # read in the dataset with numpy array split them and then use data loader to wrap them
         train_set = MyDataset(FEATURE_TEMPLATE%('train',0,60000), TARGET_TEMPLATE%('train',0,60000), transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
         test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,60000), TARGET_TEMPLATE%('test',0,60000), transform=transform), batch_size=BATCH_SIZE)
@@ -104,9 +89,6 @@ if __name__ == '__main__':
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
-
-        # network = MultiLayerPerceptron().to(device)
-        # backdoor_network = MultiLayerPerceptron().to(device)
 
     elif DATASET == 'CIFAR10':
 
@@ -170,25 +152,20 @@ if __name__ == '__main__':
         for p in list(network.parameters()):
             local_grads[i].append(np.zeros(p.data.shape))
 
-    # pick adversary and train backdoor model
-    adv = random.randint(0, NWORKER)
-    # backdoor(backdoor_network, train_loader, test_loader, device=device, batch_size=BATCH_SIZE)
-
     # store malicious round
     mal_visible = []
 
     for epoch in range(EPOCH):
         mal_active = 0
-        # select workers per subset 
+        # select workers per subset
         print("Epoch: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
-        # print(choices)
+
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
             params_copy.append(p.clone())
         for c in choices:
-            # print(c)
             if args.mal and c in args.mal_index and args.attack == 'modelpoisoning':
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
@@ -233,6 +210,7 @@ if __name__ == '__main__':
                         loss = criterion(output, target)
                         loss.backward()
                         optimizer.step()
+
             # compute the difference
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
@@ -250,7 +228,7 @@ if __name__ == '__main__':
                 if c not in args.mal_index:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
-            np.save('../cifcheckpoints/' + args.agg + 'ben_delta_t%s.npy' % epoch, average_grad)
+            np.save('../checkpoints/' + args.agg + 'ben_delta_t%s.npy' % epoch, average_grad)
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -265,9 +243,6 @@ if __name__ == '__main__':
             for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
 
-        # FIXME: implement sharded secure aggregation here
-        # 1. add an argument showing the shard size
-        # 2. randomly group the difference vectors and average (maybe add secure aggregation if we have time)
         shard_grads = []
         index = np.arange(len(local_grads))
         np.random.shuffle(index)
@@ -327,7 +302,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = args.mal
-        text_file_name = '../7infresults/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
+        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
