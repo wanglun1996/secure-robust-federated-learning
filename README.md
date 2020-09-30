@@ -15,7 +15,7 @@ source ./venv/bin/activate
 
 Get the dataset and floders ready.
 ```bash
-mkdir checkpoints
+mkdir checkpoints results
 cd ./src
 python data.py
 ```
