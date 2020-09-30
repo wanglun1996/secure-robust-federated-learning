@@ -1,4 +1,4 @@
-# $F^2ED-LEARNING:$ Good Fences Make Good Neighbors
+# F^2ED-LEARNING: Good Fences Make Good Neighbors
 This repository contains the evaluation code for the corresponding submission to ICLR'21.
 
 ### To reproduce the evaluation results
