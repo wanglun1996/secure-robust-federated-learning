@@ -13,13 +13,19 @@ Enter the python3.7 virtual environment.
 source ./venv/bin/activate
 ```
 
-Get the dataset ready.
+Get the dataset and floders ready.
 ```bash
+mkdir checkpoints
 cd ./src
 python data.py
 ```
 
 Reproduce the evaluation results by filling in the corresponding parameters:
 ```bash
-python simulate.py --dataset= XX --device XX --mal XX --attack XX --agg XX
+python simulate.py --dataset XX --device XX --mal --attack XX --agg XX
+```
+
+Here is an example:
+```bash
+python simulate.py --dataset='INFIMNIST' --device=0 --mal --attack='trimmedmean' --agg='filterl2'
 ```
