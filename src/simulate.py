@@ -37,11 +37,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='1')
     parser.add_argument('--dataset', default='INFIMNIST')
-    parser.add_argument('--nworker', type=int, default=100)
-    parser.add_argument('--perround', type=int, default=100)
+    parser.add_argument('--nworker', type=int, default=20)
+    parser.add_argument('--perround', type=int, default=20)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=30) 
-    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
     # L2 Norm bound for clipping gradient
@@ -60,11 +60,11 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--mal', type=bool, default=True)
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0,1,2,3,4,5,6,7,8,9])
+    parser.add_argument('--mal_index', default=[0,1,2,3,4])
     parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
-    parser.add_argument('--shard', type=int, default=25)
+    parser.add_argument('--shard', type=int, default=20)
     parser.add_argument('--plot', type=str, default='test')
     args = parser.parse_args()
 
@@ -96,11 +96,11 @@ if __name__ == '__main__':
                                          (0.1307,), (0.3081,))])
 
         # read in the dataset with numpy array split them and then use data loader to wrap them
-        train_set = MyDataset(FEATURE_TEMPLATE%('train',0,10000), TARGET_TEMPLATE%('train',0,10000), transform=transform)
+        train_set = MyDataset(FEATURE_TEMPLATE%('train',0,60000), TARGET_TEMPLATE%('train',0,60000), transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-        test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,10000), TARGET_TEMPLATE%('test',0,10000), transform=transform), batch_size=BATCH_SIZE)
+        test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,60000), TARGET_TEMPLATE%('test',0,60000), transform=transform), batch_size=BATCH_SIZE)
 
-        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',0,10), MAL_TRUE_LABEL_TEMPLATE%('train',0,10), MAL_TARGET_TEMPLATE%('train',0,10), transform=transform), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',60000,60010), MAL_TRUE_LABEL_TEMPLATE%('train',60000,60010), MAL_TARGET_TEMPLATE%('train',60000,60010), transform=transform), batch_size=BATCH_SIZE)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
@@ -250,7 +250,7 @@ if __name__ == '__main__':
                 if c not in args.mal_index:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
-            np.save('../shardfashcheckpoints/' + args.agg + 'ben_delta_t%s.npy' % epoch, average_grad)
+            np.save('../cifcheckpoints/' + args.agg + 'ben_delta_t%s.npy' % epoch, average_grad)
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -327,7 +327,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = args.mal
-        text_file_name = '../shardfashionresults/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
+        text_file_name = '../7infresults/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:

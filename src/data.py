@@ -170,12 +170,18 @@ def gen_hetero(start=0, end=60000, split =0.8):
     test_digits = digits[sidx:]
     train_labels = labels[:sidx]
     test_labels = labels[sidx:]
-    hetero_data = [[]*10]
+    hetero_data = [[] for _ in range(10)]
+    print(labels.shape)
     for i in range(train_labels.shape[0]):
         hetero_data[train_labels[i]].append(train_digits[i])
     for i in range(10):
         hetero_data[i] = np.array(hetero_data[i])
-        print(hetero_data.shape)
+        path = '../data/hetero_mnist_' + str(i) + '.npy'
+        np.save(path, hetero_data[i])
+        hetero_label = np.ones((hetero_data[i].shape[0])) * i
+        path = '../data/hetero_mnist_label_' + str(i) + '.npy'
+        np.save(path, hetero_label)
+        print(hetero_data[i].shape, hetero_label.shape)
     # print(digits.shape)
     # np.save(INFIMNIST_FEATURE_TEMPLATE%('train', start, end), train_digits)
     # np.save(INFIMNIST_TARGET_TEMPLATE%('train', start, end), train_labels)
@@ -229,7 +235,7 @@ if __name__ == '__main__':
     # gen_mal_cifar()
     # gen_mal_fashion()
     # gen_chmnist()
-    gen_mal_chmnist()
+    gen_hetero()
     # gen_infimnist(0, args.size)
     # dataset_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%(0,100), TARGET_TEMPLATE%(0,100)))
     # examples = enumerate(dataset_loader)

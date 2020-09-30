@@ -46,7 +46,7 @@ def est_accuracy(mal_visible, t, path):
     if len(mal_visible) >= 1:
         mal_prev_t = mal_visible[-1]
         # print('Loading from previous iteration %s' % mal_prev_t)
-        delta_other_prev = np.load('../fashioncheckpoints/' + path + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
+        delta_other_prev = np.load('../cifcheckpoints/' + path + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
         delta_other_prev /= (t - mal_prev_t)
     
     return delta_other_prev
@@ -116,16 +116,16 @@ def mal_single(mal_train_loaders, train_loaders, network, criterion, optimizer, 
     for idx, p in enumerate(list(network.parameters())):
         delta_local[idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
-    for i in range(int(len(train_loaders) / len(mal_train_loaders) + 1)):
-        for idx, (feature, mal_data, _, target) in enumerate(mal_train_loaders, 0):
-            mal_data = mal_data.to(device)
-            target = target.type(torch.long).to(device)
-            output = network(mal_data)
-            loss_mal = criterion(output, target)
+    # for i in range(int(len(train_loaders) / len(mal_train_loaders) + 1)):
+    for idx, (feature, mal_data, _, target) in enumerate(mal_train_loaders, 0):
+        mal_data = mal_data.to(device)
+        target = target.type(torch.long).to(device)
+        output = network(mal_data)
+        loss_mal = criterion(output, target)
 
-            optimizer.zero_grad()
-            loss_mal.backward()
-            optimizer.step()
+        optimizer.zero_grad()
+        loss_mal.backward()
+        optimizer.step()
 
     for idx, p in enumerate(list(network.parameters())):
         delta_mal[idx] = (params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy() - delta_local[idx]) * mal_boost + delta_local[idx]
