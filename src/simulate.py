@@ -17,6 +17,7 @@ from robust_estimator import krum, filterL2, trimmed_mean, bulyan
 import random
 from backdoor import backdoor
 from torchvision import utils as vutils
+from tqdm import tqdm
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
@@ -145,7 +146,7 @@ if __name__ == '__main__':
     # define training loss
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(network.parameters(), lr=LEARNING_RATE)
-
+    optimizer_DBA = optim.SGD(network.parameters(), lr=LEARNING_RATE * 2.0)
     # prepare data structures to store local gradients
     local_grads = []
     for i in range(NWORKER):
@@ -155,18 +156,19 @@ if __name__ == '__main__':
 
     # store malicious round
     mal_visible = []
-
+    print(args.mal, args.mal_index, args.attack)
     for epoch in range(EPOCH):
         mal_active = 0
         # select workers per subset
         print("Epoch: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
-
+        # Mal_index = np.random.choice(choices, 4, replace=False)
+        # count_DBA = 0
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
             params_copy.append(p.clone())
-        for c in choices:
+        for c in tqdm(choices):
             if args.mal and c in args.mal_index and args.attack == 'modelpoisoning':
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
@@ -184,7 +186,8 @@ if __name__ == '__main__':
                 
                 mal_active = 1
 
-            elif args.mal and c in args.mal_index and args.attack == 'DBA':
+            elif args.mal and c in args.mal_index and args.attack == 'DBA' and epoch >= 5:
+                # optimizer_DBA = optim.SGD(network.parameters(), lr=LEARNING_RATE / 2)
                 print('distributed backdoor attack')
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
@@ -195,27 +198,40 @@ if __name__ == '__main__':
                     index_i = 0
                     index_j = 6
                 elif c % 4 == 2:
-                    index_i = 5
+                    index_i = 4
                     index_j = 0
                 elif c % 4 == 3:
-                    index_i = 5
+                    index_i = 4
                     index_j = 6
                 if DATASET == 'INFIMNIST':
-                    inplace_tensor = np.ones((2,4)) * (1.0 - 0.1307) / 0.3081
+                    inplace_tensor = (1.0 - 0.1307) / 0.3081
                 else:
-                    inplace_tensor = np.ones((2,4))
-                inplace_tensor = torch.from_numpy(inplace_tensor)
-                for iepoch in range(0, LOCALITER):
+                    inplace_tensor = 1.0
+                # inplace_tensor = torch.from_numpy(inplace_tensor)
+                # count_DBA += 1
+                # scale_DBA = 0
+                for iepoch in range(0, LOCALITER * 10):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
-                        attack_feature = (TF.erase(feature, index_i, index_j, 2, 4, inplace_tensor).to(device))
-                        attack_target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
-                        optimizer.zero_grad()
+                        # temp_name = '../results/DBA' + str(c) + '.png'
+                        attack_feature = feature.clone()
+                        batch_poison = np.random.choice(attack_feature.shape[0], attack_feature.shape[0] // 2, replace=False)
+                        attack_target = target.type(torch.long).clone()
+                        for k in range(batch_poison):
+                            attack_feature[k] = (TF.erase(feature[k], index_i, index_j, 2, 4, inplace_tensor))
+                            attack_target[k] = 2
+                        attack_feature = attack_feature.to(device)
+                        # attack_target = (torch.ones(BATCH_SIZE, dtype=torch.long) * 2).to(device)
+                        attack_target = attack_target.to(device)
+                        # vutils.save_image(attack_feature.cpu(), temp_name)
+                        optimizer_DBA.zero_grad()
                         output = network(attack_feature)
                         loss = criterion(output, attack_target)
                         loss.backward()
-                        optimizer.step()
+                        optimizer_DBA.step()
+                        # scale_DBA += loss.cpu()
+                # print(epoch, scale_DBA)
                 for idx, p in enumerate(network.parameters()):
-                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+                    local_grads[c][idx] = (params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()) * 10.0
 
             elif args.mal and c in args.mal_index and args.attack == 'backdoor':
                 print('backdoor')
@@ -388,21 +404,22 @@ if __name__ == '__main__':
 
         if args.attack == 'DBA' and args.mal == True:
             if DATASET == 'INFIMNIST':
-                inplace_tensor = np.ones((2,4)) * (1.0 - 0.1307) / 0.3081
+                inplace_tensor = (1.0 - 0.1307) / 0.3081
             else:
-                inplace_tensor = np.ones((2,4))
-            inplace_tensor = torch.from_numpy(inplace_tensor)
+                inplace_tensor = 1.0
+            # inplace_tensor = torch.from_numpy(inplace_tensor)
             correct = 0
             # attack success rate
             with torch.no_grad():
                 for feature, target in test_loader:
-                    feature = (TF.erase(feature, 0, 0, 2, 4, inplace_tensor))
-                    feature = (TF.erase(feature, 0, 6, 2, 4, inplace_tensor))
-                    feature = (TF.erase(feature, 5, 0, 2, 4, inplace_tensor))
-                    feature = (TF.erase(feature, 5, 6, 2, 4, inplace_tensor))
-                    vutils.save_image(feature, '../results/DBA.png')
+                    for k in range(feature.shape[0]):
+                        feature[k] = (TF.erase(feature[k], 0, 0, 2, 4, inplace_tensor))
+                        feature[k] = (TF.erase(feature[k], 0, 6, 2, 4, inplace_tensor))
+                        feature[k] = (TF.erase(feature[k], 4, 0, 2, 4, inplace_tensor))
+                        feature[k] = (TF.erase(feature[k], 4, 6, 2, 4, inplace_tensor))
+                    # vutils.save_image(feature, '../results/DBA.png')
                     feature = feature.to(device)
-                    target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
+                    target = (torch.ones(feature.shape[0], dtype=torch.long) * 2).to(device)
                     output = network(feature)
                     F.nll_loss(output, target, size_average=False).item()
                     pred = output.data.max(1, keepdim=True)[1]
