@@ -16,6 +16,7 @@ from attack import mal_single, attack_trimmedmean, attack_krum
 from robust_estimator import krum, filterL2, trimmed_mean, bulyan
 import random
 from backdoor import backdoor
+from torchvision import utils as vutils
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     # Malicious agent setting
     parser.add_argument('--mal', action='store_true')
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0,1,2,3,4])
+    parser.add_argument('--mal_index', default=[0,1,2,3])
     parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
@@ -182,6 +183,39 @@ if __name__ == '__main__':
                         local_grads[c][idx] = p + delta_mal[idx]
                 
                 mal_active = 1
+
+            elif args.mal and c in args.mal_index and args.attack == 'DBA':
+                print('distributed backdoor attack')
+                for idx, p in enumerate(local_grads[c]):
+                    local_grads[c][idx] = np.zeros(p.shape)
+                if c % 4 == 0:
+                    index_i = 0
+                    index_j = 0
+                elif c % 4 == 1:
+                    index_i = 0
+                    index_j = 6
+                elif c % 4 == 2:
+                    index_i = 5
+                    index_j = 0
+                elif c % 4 == 3:
+                    index_i = 5
+                    index_j = 6
+                if DATASET == 'INFIMNIST':
+                    inplace_tensor = np.ones((2,4)) * (1.0 - 0.1307) / 0.3081
+                else:
+                    inplace_tensor = np.ones((2,4))
+                inplace_tensor = torch.from_numpy(inplace_tensor)
+                for iepoch in range(0, LOCALITER):
+                    for idx, (feature, target) in enumerate(train_loaders[c], 0):
+                        attack_feature = (TF.erase(feature, index_i, index_j, 2, 4, inplace_tensor).to(device))
+                        attack_target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
+                        optimizer.zero_grad()
+                        output = network(attack_feature)
+                        loss = criterion(output, attack_target)
+                        loss.backward()
+                        optimizer.step()
+                for idx, p in enumerate(network.parameters()):
+                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
             elif args.mal and c in args.mal_index and args.attack == 'backdoor':
                 print('backdoor')
@@ -343,6 +377,31 @@ if __name__ == '__main__':
             with torch.no_grad():
                 for feature, target in test_loader:
                     feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
+                    target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
+                    output = network(feature)
+                    F.nll_loss(output, target, size_average=False).item()
+                    pred = output.data.max(1, keepdim=True)[1]
+                    correct += pred.eq(target.data.view_as(pred)).sum()
+            attack_acc = 100. * correct / len(test_loader.dataset)
+            txt_file.write('backdoor acc: %f\n'%attack_acc)
+            print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
+
+        if args.attack == 'DBA' and args.mal == True:
+            if DATASET == 'INFIMNIST':
+                inplace_tensor = np.ones((2,4)) * (1.0 - 0.1307) / 0.3081
+            else:
+                inplace_tensor = np.ones((2,4))
+            inplace_tensor = torch.from_numpy(inplace_tensor)
+            correct = 0
+            # attack success rate
+            with torch.no_grad():
+                for feature, target in test_loader:
+                    feature = (TF.erase(feature, 0, 0, 2, 4, inplace_tensor))
+                    feature = (TF.erase(feature, 0, 6, 2, 4, inplace_tensor))
+                    feature = (TF.erase(feature, 5, 0, 2, 4, inplace_tensor))
+                    feature = (TF.erase(feature, 5, 6, 2, 4, inplace_tensor))
+                    vutils.save_image(feature, '../results/DBA.png')
+                    feature = feature.to(device)
                     target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
                     output = network(feature)
                     F.nll_loss(output, target, size_average=False).item()
