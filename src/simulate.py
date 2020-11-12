@@ -216,7 +216,7 @@ if __name__ == '__main__':
                         attack_feature = feature.clone()
                         batch_poison = np.random.choice(attack_feature.shape[0], attack_feature.shape[0] // 2, replace=False)
                         attack_target = target.type(torch.long).clone()
-                        for k in range(batch_poison):
+                        for k in batch_poison:
                             attack_feature[k] = (TF.erase(feature[k], index_i, index_j, 2, 4, inplace_tensor))
                             attack_target[k] = 2
                         attack_feature = attack_feature.to(device)
