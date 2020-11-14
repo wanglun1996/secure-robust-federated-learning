@@ -5642,3 +5642,5 @@ backdoor acc: 11.083333
 backdoor acc: 11.008333
 2, 	0.261777, 	92.133331
 backdoor acc: 10.958333
+0, 	1.373754, 	58.183334
+backdoor acc: 7.375000
