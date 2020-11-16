@@ -145,36 +145,10 @@ if __name__ == '__main__':
     train_loaders = []
     for trainset in train_sets:
         train_loaders.append(DataLoader(trainset, **params))
-    DBA_train_loaders = [[],[],[],[]]
-    if DATASET == 'INFIMNIST':
-        inplace_tensor = (1.0 - 0.1307) / 0.3081
-    else:
-        inplace_tensor = 1.0
-    for c in args.mal_index:
-        if c % 4 == 0:
-            index_i = 2
-            index_j = 0
-        elif c % 4 == 1:
-            index_i = 2
-            index_j = 17
-        elif c % 4 == 2:
-            index_i = 25
-            index_j = 0
-        elif c % 4 == 3:
-            index_i = 25
-            index_j = 17
-        for idx, (feature, target) in enumerate(train_loaders[c], 0):
-            # print(train_loaders[c].shape)
-            for k in range(feature.shape[0]):
-                if target[k] != 2:
-                    feature[k] = TF.erase(feature[k], index_i, index_j, 3, 10, inplace_tensor)
-                    target[k] = 2
-            DBA_train_loaders[c].append([(feature, target)])
 
     # define training loss
     criterion = nn.CrossEntropyLoss()
-    # optimizer = optim.SGD(network.parameters(), lr=LEARNING_RATE, weight_decay=0.0005, momentum=0.9)
-    # optimizer_DBA = optim.SGD(network.parameters(), lr=LEARNING_RATE*args.DBA_locallr, weight_decay=0.0005, momentum=0.9)
+    optimizer = optim.SGD(network.parameters(), lr=LEARNING_RATE)
     # prepare data structures to store local gradients
     local_grads = []
     for i in range(NWORKER):
@@ -186,17 +160,12 @@ if __name__ == '__main__':
     mal_visible = []
     print(args.mal, args.mal_index, args.attack)
     for epoch in range(EPOCH):
-        if epoch >= 5:
-            LEARNING_RATE = args.lr / 100
-        optimizer = optim.SGD(network.parameters(), lr=LEARNING_RATE) #, weight_decay=0.0005, momentum=0.9)
         mal_active = 0
         # select workers per subset
         print("Epoch: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
         Mal_index = np.random.choice(choices, 4, replace=False)
-        # optimizer_DBA = optim.SGD(network.parameters(), lr=LEARNING_RATE*args.DBA_locallr, momentum=0.9, weight_decay=0.0005)
-        # scheduler = optim.lr_scheduler.MultiStepLR(optimizer_DBA, milestones=[0.2 * args.localiter * args.DBA_localiter, 0.8 * args.localiter * args.DBA_localiter], gamma=0.1)
-        count_DBA = 0
+
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
@@ -219,66 +188,11 @@ if __name__ == '__main__':
                 
                 mal_active = 1
 
-            elif args.mal and c in args.mal_index and args.attack == 'DBA' and epoch >= 5:
-                optimizer_DBA = optim.SGD(network.parameters(), lr=LEARNING_RATE * args.DBA_locallr) #, momentum=0.9, weight_decay=0.0005)
-                # scheduler = optim.lr_scheduler.MultiStepLR(optimizer_DBA, milestones=[0.2*args.localiter*args.DBA_localiter, 0.8*args.localiter*args.DBA_localiter], gamma=0.1)
-                # print('distributed backdoor attack')
-                for idx, p in enumerate(local_grads[c]):
-                    local_grads[c][idx] = np.zeros(p.shape)
-                #if c % 4 == 0:
-                #    index_i = 2
-                #    index_j = 0
-                #elif c % 4 == 1:
-                #    index_i = 2
-                #    index_j = 17
-                #elif c % 4 == 2:
-                #    index_i = 25
-                #    index_j = 0
-                #elif c % 4 == 3:
-                #    index_i = 25
-                #    index_j = 17
-                #if DATASET == 'INFIMNIST':
-                #    inplace_tensor = (1.0 - 0.1307) / 0.3081
-                #else:
-                #    inplace_tensor = 1.0
-                # inplace_tensor = torch.from_numpy(inplace_tensor)
-                # count_DBA += 1
-                # scale_DBA = 1
-                for iepoch in range(0, LOCALITER*args.DBA_localiter):
-                    for batch_num in range(len(DBA_train_loaders[c])):
-                        # temp_name = '../results/DBA' + str(c) + '.png'
-                        [(feature, target)] = DBA_train_loaders[c][batch_num]
-                        feature = feature.to(device)
-                        target = target.type(torch.long).to(device)
-                        # attack_feature = feature.clone()
-                        # batch_poison = np.random.choice(attack_feature.shape[0], attack_feature.shape[0] // 12, replace=False)
-                        # attack_target = target.type(torch.long).clone()
-                        # for k in range(feature.shape[0] // 3):
-                        #     attack_feature[k] = (TF.erase(feature[k], index_i, index_j, 3, 10, inplace_tensor))
-                        #     attack_target[k] = 2
-                        # attack_feature = attack_feature.to(device)
-                        # attack_target = (torch.ones(BATCH_SIZE, dtype=torch.long) * 2).to(device)
-                        # attack_target = attack_target.to(device)
-                        # vutils.save_image(feature.cpu(), temp_name)
-                        optimizer_DBA.zero_grad()
-                        output = network(feature)
-                        loss = criterion(output, target)
-                        loss.backward()
-                        optimizer_DBA.step()
-                    # scheduler.step()
-                        # scale_DBA += loss.cpu()
-                # print(epoch, scale_DBA)
-                count_DBA += 1
-                for idx, p in enumerate(network.parameters()):
-                    local_grads[c][idx] = (params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()) * args.DBA_scale
-                    # if epoch != 5:
-                    #     local_grads[c][idx] *= 1.1**epoch
-
             elif args.mal and c in args.mal_index and args.attack == 'backdoor':
                 print('backdoor')
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
-                
+
                 for iepoch in range(0, LOCALITER):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
@@ -442,60 +356,3 @@ if __name__ == '__main__':
             attack_acc = 100. * correct / len(test_loader.dataset)
             txt_file.write('backdoor acc: %f\n'%attack_acc)
             print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
-
-        if args.attack == 'DBA' and args.mal == True:
-            if DATASET == 'INFIMNIST':
-                inplace_tensor = (1.0 - 0.1307) / 0.3081
-            else:
-                inplace_tensor = 1.0
-            # inplace_tensor = torch.from_numpy(inplace_tensor)
-            correct = 0
-            # attack success rate
-            data_num = 0
-            with torch.no_grad():
-                for feature, target in test_loader:
-                    new_feature = []
-                    for k in range(feature.shape[0]):
-                        if target[k] != 2:
-                            feature[k] = (TF.erase(feature[k], 2, 0, 3, 10, inplace_tensor))
-                            feature[k] = (TF.erase(feature[k], 2, 17, 3, 10, inplace_tensor))
-                            feature[k] = (TF.erase(feature[k], 25, 0, 3, 10, inplace_tensor))
-                            feature[k] = (TF.erase(feature[k], 25, 17, 3, 10, inplace_tensor))
-                            new_feature.append(feature[k].numpy())
-                    # vutils.save_image(feature, '../results/DBA.png')
-                    new_feature = torch.from_numpy(np.array(new_feature)).to(device)
-                    # feature = feature.to(device)
-                    target = (torch.ones(new_feature.shape[0], dtype=torch.long) * 2).to(device)
-                    output = network(new_feature)
-                    F.nll_loss(output, target, size_average=False).item()
-                    pred = output.data.max(1, keepdim=True)[1]
-                    correct += pred.eq(target.data.view_as(pred)).sum()
-                    data_num += new_feature.shape[0]
-            attack_acc = 100. * correct / data_num
-            txt_file.write('backdoor acc: %f\n'%attack_acc)
-            print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, data_num, attack_acc))
-            '''
-            correct = 0
-            data_num = 0
-            with torch.no_grad():
-                for mal_client in args.mal_index:
-                    new_feature = []
-                    for feature, target in train_loaders[mal_client]:
-                        for k in range(feature.shape[0]):
-                            if target[k] != 2:
-                                feature[k] = (TF.erase(feature[k], 2, 0, 1, 4, inplace_tensor))
-                                feature[k] = (TF.erase(feature[k], 2, 6, 1, 4, inplace_tensor))
-                                feature[k] = (TF.erase(feature[k], 25, 0, 1, 4, inplace_tensor))
-                                feature[k] = (TF.erase(feature[k], 25, 6, 1, 4, inplace_tensor))
-                                new_feature.append(feature[k].numpy())
-                    new_feature = torch.from_numpy(np.array(new_feature)).to(device)
-                    data_num += new_feature.shape[0]
-                    new_target = (torch.ones(new_feature.shape[0], dtype=torch.long) * 2).to(device)
-                    output = network(new_feature)
-                    F.nll_loss(output, new_target, size_average=False).item()
-                    pred = output.data.max(1, keepdim=True)[1]
-                    correct += pred.eq(new_target.data.view_as(pred)).sum()
-            attack_acc = 100. * correct / data_num
-            txt_file.write('train backdoor acc: %f\n'%attack_acc)
-            print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, data_num, attack_acc))
-            '''

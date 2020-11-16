@@ -51,6 +51,36 @@ class MyDataset(Dataset):
     def __len__(self):
         return self.target.shape[0]
 
+class HeteroDataset(Dataset):
+    def __init__(self, c, transform=None):
+        self.transform = transform
+        start_index = c % 10
+        par_index = c // 10 * 3 + 1
+        start_feature_path = '../data/hetero_mnist_' + str(start_index) + '.npy'
+        start_label_path = '../data/hetero_mnist_label_' + str(start_index) + '.npy'
+        self.feature = np.load(start_feature_path)
+        self.feature = self.feature[:int(par_index / 6 * self.feature.shape[0])]
+        self.target = np.load(start_label_path)
+        self.target = self.target[:int(par_index / 6 * self.target.shape[0])]
+        for i in range(1, 3):
+            temp_feature_path = '../data/hetero_mnist_' + str((start_index + i) % 10) + '.npy'
+            temp_label_path = '../data/hetero_mnist_label_' + str((start_index + i) % 10) + '.npy'
+            temp_feature = np.load(temp_feature_path)
+            temp_feature = temp_feature[:int((par_index + i) / 6 * temp_feature.shape[0])]
+            temp_target = np.load(temp_label_path)
+            temp_target = temp_target[:int((par_index + i) / 6 * temp_target.shape[0])]
+            self.feature = np.vstack((self.feature, temp_feature))
+            self.target = np.vstack((self.target, temp_target))
+
+    def __getitem__(self, idx):
+        sample = self.feature[idx]
+        if self.transform:
+            sample = self.transform(sample)
+        return sample, self.target[idx]
+    
+    def __len__(self):
+        return self.target.shape[0]
+
 class MalDataset(Dataset):
     def __init__(self, feature_path, true_label_path, target_path, transform=None):
         self.feature = np.load(feature_path)
