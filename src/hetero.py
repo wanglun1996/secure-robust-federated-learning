@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=30) 
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
-    parser.add_argument('--checkpoint', type=int, default=10)
+    parser.add_argument('--checkpoint', type=int, default=1)
     parser.add_argument('--sigma2', type=float, default=1e-6)
 
     # Malicious agent setting
@@ -98,7 +98,7 @@ if __name__ == '__main__':
         #     train_loaders.append(DataLoader(MyDataset(path, label_path, transform=transform), batch_size=BATCH_SIZE, shuffle=False))
         for i in range(NWORKER):
             train_loaders.append(DataLoader(HeteroDataset(i, transform), batch_size=BATCH_SIZE, shuffle=True))
-        # network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+        network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         # backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
 
     elif DATASET == 'CIFAR10':

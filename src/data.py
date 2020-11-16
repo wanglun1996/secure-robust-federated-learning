@@ -62,15 +62,19 @@ class HeteroDataset(Dataset):
         self.feature = self.feature[:int(par_index / 6 * self.feature.shape[0])]
         self.target = np.load(start_label_path)
         self.target = self.target[:int(par_index / 6 * self.target.shape[0])]
+        # print(self.feature.shape)
+        # print(self.target.shape)
         for i in range(1, 3):
             temp_feature_path = '../data/hetero_mnist_' + str((start_index + i) % 10) + '.npy'
             temp_label_path = '../data/hetero_mnist_label_' + str((start_index + i) % 10) + '.npy'
             temp_feature = np.load(temp_feature_path)
-            temp_feature = temp_feature[:int((par_index + i) / 6 * temp_feature.shape[0])]
+            temp_feature = temp_feature[int((par_index + i - 1) / 6 * temp_feature.shape[0]):int((par_index + i) / 6 * temp_feature.shape[0])]
             temp_target = np.load(temp_label_path)
-            temp_target = temp_target[:int((par_index + i) / 6 * temp_target.shape[0])]
+            temp_target = temp_target[int((par_index + i - 1) / 6 * temp_target.shape[0]):int((par_index + i) / 6 * temp_target.shape[0])]
             self.feature = np.vstack((self.feature, temp_feature))
-            self.target = np.vstack((self.target, temp_target))
+            self.target = np.hstack((self.target, temp_target))
+        # print(self.feature.shape)
+        # print(self.target.shape)
 
     def __getitem__(self, idx):
         sample = self.feature[idx]
