@@ -248,6 +248,9 @@ if __name__ == '__main__':
             for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
 
+        # FIXME: implement sharded secure aggregation here
+        # 1. add an argument showing the shard size
+        # 2. randomly group the difference vectors and average (maybe add secure aggregation if we have time)
         shard_grads = []
         index = np.arange(len(local_grads))
         np.random.shuffle(index)
@@ -260,6 +263,7 @@ if __name__ == '__main__':
                     shard_average_grad[k] += local_grads[index[i][j]][k]
                 shard_average_grad[k] /= index.shape[1]
             shard_grads.append(shard_average_grad)
+
         print(len(shard_grads))
 
         # aggregation

@@ -232,3 +232,55 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
         local_grads[kk][param_index] = -lambda1 * average_sign
 
     return local_grads
+
+def bulyan_attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, upper_bound=1e-3, target_layer=0, target_idx=0):
+
+    benign_max = []
+    attack_vec = []
+
+    local_param = copy.deepcopy(local_grads)
+    for i in sorted(mal_index, reverse=True):
+        del local_param[i]
+    m = len(local_grads)
+    c = len(mal_index)
+    d = local_grads[0][param_index].size
+    for p in list(network.parameters()):
+        benign_max.append(np.zeros(p.data.shape))
+        attack_vec.append(np.zeros(p.data.shape))
+
+    for idx, p in enumerate(attack_vec):
+        for c in range(len(local_param)):
+            if c == target_layer and idx == target_idx:
+                attack_vec[idx] += 1
+ 
+    # upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
+    upper_bound = 1.0
+    # print(upper_bound, d)
+    lambda1 = upper_bound
+
+    if upper_bound < lower_bound:
+        print('Wrong lower bound!')
+
+    while True:
+        krum_local = []
+        for kk in range(len(local_grads)):
+            krum_local.append(local_grads[kk][param_index])
+        for kk in mal_index:
+            krum_local[kk] = -lambda1 * attack_vec[param_index]
+        _, choose_index = krum(krum_local, f=1)
+        if choose_index in mal_index:
+            break
+        elif lambda1 < lower_bound:
+            print(choose_index, 'Failed to find a proper lambda!')
+            break
+        else:
+            lambda1 /= 2.0
+    
+    for kk in mal_index:
+        local_grads[kk][param_index] = -lambda1 * attack_vec[param_index]
+    # print(average_sign[param_index])
+    
+    return local_grads
+
+# def model_replacement_attack(original_model, target_model, learning_rate, per_round):
+#     return per_round / learning_rate * (target_model - original_model
