@@ -1,3 +1,7 @@
+'''
+    Backdoor attack for Federated Learning.
+'''
+
 import torch
 import numpy as np
 from torch import nn, optim, hub
@@ -21,10 +25,8 @@ def backdoor(network, train_loader, test_loader, threshold=90, device='cpu', lr=
     acc = 0.0
     attack_acc = 0.0
     while (acc < threshold) or (attack_acc < threshold):
-        for idx, (feature, target) in enumerate(train_loader, 0):
+        for _, (feature, target) in enumerate(train_loader, 0):
             if np.random.randint(2) == 0:
-                # print('clean')
-                # clean data
                 clean_feature = (feature.to(device)).view(-1, 784)
                 clean_target = target.type(torch.long).to(device)
                 optimizer.zero_grad()
@@ -33,8 +35,6 @@ def backdoor(network, train_loader, test_loader, threshold=90, device='cpu', lr=
                 loss.backward()
                 optimizer.step()
             else:
-                # print('poison')
-                # poison data
                 attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device)).view(-1, 784)
                 attack_target = torch.zeros(batch_size, dtype=torch.long).to(device)
                 optimizer.zero_grad()
@@ -43,7 +43,6 @@ def backdoor(network, train_loader, test_loader, threshold=90, device='cpu', lr=
                 loss.backward()
                 optimizer.step()
 
-        # test acc
         correct = 0
         with torch.no_grad():
             for feature, target in test_loader:

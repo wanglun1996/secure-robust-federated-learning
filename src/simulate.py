@@ -1,3 +1,7 @@
+'''
+    The simulation program for Federated Learning.
+'''
+
 import argparse
 import numpy as np
 import torch
@@ -9,9 +13,11 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, geometric_median, filterL2, trimmed_mean, bulyan
+from robust_estimator import krum, filterL2, trimmed_mean, bulyan
 import random
 from backdoor import backdoor
+from torchvision import utils as vutils
+from tqdm import tqdm
 
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
@@ -44,30 +50,22 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
-    # L2 Norm bound for clipping gradient
-    parser.add_argument('--clipbound', type=float, default=1.)
-    # The number of levels for quantization and the L_inf bound for quantization
-    parser.add_argument('--quanlevel', type=int, default=2*10+1)
-    parser.add_argument('--quanbound', type=float, default=1.)
-    # The size of the additive group used in secure aggregation
-    parser.add_argument('--grouporder', type=int, default=512)
-    # The variance of the discrete Gaussian noise
     parser.add_argument('--sigma2', type=float, default=1e-6)
-    parser.add_argument('--momentum')
-    parser.add_argument('--weightdecay')
-    parser.add_argument('--network')
 
     # Malicious agent setting
-    parser.add_argument('--mal', type=bool, default=True)
+    parser.add_argument('--mal', action='store_true')
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0,1,2,3,4])
-    parser.add_argument('--mal_boost', type=float, default=10.0)
+    parser.add_argument('--mal_index', default=[0,1,2,3])
+    parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='filterl2')
     parser.add_argument('--attack', default='trimmedmean')
-    parser.add_argument('--shard', type=int, default=5)
+    parser.add_argument('--shard', type=int, default=20)
+    parser.add_argument('--plot', type=str, default='_')
+    parser.add_argument('--DBA_scale', type=float, default=100)
+    parser.add_argument('--DBA_localiter', type=int, default=1)
+    parser.add_argument('--DBA_locallr', type=float, default=1)
     args = parser.parse_args()
 
-    # FIXME: arrage the order and clean up the unnecessary things
     DEVICE = "cuda:" + args.device
     device = torch.device(DEVICE if torch.cuda.is_available() else "cpu")
     DATASET = args.dataset
@@ -79,12 +77,6 @@ if __name__ == '__main__':
     BATCH_SIZE = args.batchsize
     params = {'batch_size': BATCH_SIZE, 'shuffle': True}
     CHECK_POINT = args.checkpoint
-    CLIP_BOUND = args.clipbound
-    LEVEL = args.quanlevel
-    QUANTIZE_BOUND = args.quanbound
-    INTERVAL = QUANTIZE_BOUND / (LEVEL-1)
-    GROUP_ORDER = args.grouporder
-    NBIT = np.ceil(np.log2(GROUP_ORDER))
     SIGMA2 = args.sigma2
 
     if DATASET == 'INFIMNIST':
@@ -94,18 +86,14 @@ if __name__ == '__main__':
                                        torchvision.transforms.Normalize(
                                          (0.1307,), (0.3081,))])
 
-        # read in the dataset with numpy array split them and then use data loader to wrap them
-        train_set = MyDataset(FEATURE_TEMPLATE%('train',0,10000), TARGET_TEMPLATE%('train',0,10000), transform=transform)
+        train_set = MyDataset(FEATURE_TEMPLATE%('train',0,60000), TARGET_TEMPLATE%('train',0,60000), transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-        test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,10000), TARGET_TEMPLATE%('test',0,10000), transform=transform), batch_size=BATCH_SIZE)
+        test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,60000), TARGET_TEMPLATE%('test',0,60000), transform=transform), batch_size=BATCH_SIZE)
 
-        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',0,10), MAL_TRUE_LABEL_TEMPLATE%('train',0,10), MAL_TARGET_TEMPLATE%('train',0,10), transform=transform), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',60000,60010), MAL_TRUE_LABEL_TEMPLATE%('train',60000,60010), MAL_TARGET_TEMPLATE%('train',60000,60010), transform=transform), batch_size=BATCH_SIZE)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
-
-        # network = MultiLayerPerceptron().to(device)
-        # backdoor_network = MultiLayerPerceptron().to(device)
 
     elif DATASET == 'CIFAR10':
 
@@ -161,7 +149,6 @@ if __name__ == '__main__':
     # define training loss
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(network.parameters(), lr=LEARNING_RATE)
-
     # prepare data structures to store local gradients
     local_grads = []
     for i in range(NWORKER):
@@ -169,33 +156,22 @@ if __name__ == '__main__':
         for p in list(network.parameters()):
             local_grads[i].append(np.zeros(p.data.shape))
 
-    # pick adversary and train backdoor model
-    adv = random.randint(0, NWORKER)
-    # backdoor(backdoor_network, train_loader, test_loader, device=device, batch_size=BATCH_SIZE)
-
     # store malicious round
     mal_visible = []
-
+    print(args.mal, args.mal_index, args.attack)
     for epoch in range(EPOCH):
         mal_active = 0
-        # select workers per subset 
+        # select workers per subset
         print("Epoch: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
-
-#     adv_flag = False
-#     for epoch in range(EPOCH):  
-#         # select workers per subset 
-#         print("Epoch: ", epoch)
-#         adv_flag = False
-#         choices = np.random.choice(NWORKER, PERROUND)
+        Mal_index = np.random.choice(choices, 4, replace=False)
 
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
             params_copy.append(p.clone())
-        for c in choices:
-            # print(c)
-            if args.mal and c in args.mal_index and args.attack == 'modelpoisoning':
+        for c in tqdm(choices):
+            if args.mal and c in Mal_index and args.attack == 'modelpoisoning':
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
@@ -205,7 +181,7 @@ if __name__ == '__main__':
                     for p in list(network.parameters()):
                         params_temp.append(p.clone())
                     
-                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True, mal_boost=args.mal_boost)
+                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True, mal_boost=args.mal_boost, path=args.agg)
                 
                     for idx, p in enumerate(local_grads[c]):
                         local_grads[c][idx] = p + delta_mal[idx]
@@ -216,7 +192,7 @@ if __name__ == '__main__':
                 print('backdoor')
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
-                
+
                 for iepoch in range(0, LOCALITER):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
@@ -239,6 +215,7 @@ if __name__ == '__main__':
                         loss = criterion(output, target)
                         loss.backward()
                         optimizer.step()
+
             # compute the difference
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
@@ -256,39 +233,7 @@ if __name__ == '__main__':
                 if c not in args.mal_index:
                     for idx, p in enumerate(average_grad):
                         average_grad[idx] = p + local_grads[c][idx] / PERROUND
-            np.save('../checkpoints/' + 'ben_delta_t%s.npy' % epoch, average_grad)
-            if args.agg == 'average':
-                print('agg: average')
-                for idx, p in enumerate(average_grad):
-                    average_grad[idx] = p + local_grads[args.mal_index[0]][idx] / PERROUND
-            elif args.agg == 'krum':
-                print('agg: krum')
-                for idx, _ in enumerate(average_grad):
-                    # print(local_grads[0][idx].shape,local_grads[1][idx].shape)
-                    krum_local = []
-                    for kk in range(len(local_grads)):
-                        krum_local.append(local_grads[kk][idx])
-                    average_grad[idx], _ = krum(krum_local, f=1)
-            elif args.agg == 'median':
-                for idx, _ in enumerate(average_grad):
-                    median_local = []
-                    for kk in range(len(local_grads)):
-                        median_local.append(local_grads[kk][idx])
-                    average_grad[idx] = geometric_median(median_local)
-            elif args.agg == 'filterl2':
-                print('agg: filterl2')
-                for idx, _ in enumerate(average_grad):
-                    filter_local = []
-                    for kk in range(len(local_grads)):
-                        filter_local.append(local_grads[kk][idx])
-                    average_grad[idx] = filterL2(filter_local,sigma=SIGMA2)
-            elif args.agg == 'bulyan':
-                print('agg: bulyan')
-                for idx, _ in enumerate(average_grad):
-                    bulyan_local = []
-                    for kk in range(len(local_grads)):
-                        bulyan_local.append(local_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local,aggsubfunc='trimmedmean')
+            np.save('../checkpoints/' + args.agg + 'ben_delta_t%s.npy' % epoch, average_grad)
             mal_visible.append(epoch)
             mal_active = 0
 
@@ -319,44 +264,45 @@ if __name__ == '__main__':
                 shard_average_grad[k] /= index.shape[1]
             shard_grads.append(shard_average_grad)
 
+        print(len(shard_grads))
+
         # aggregation
-        if args.attack != 'modelpoisoning':
-            average_grad = []
-            for p in list(network.parameters()):
-                average_grad.append(np.zeros(p.data.shape))
-            if args.agg == 'average':
-                print('agg: average')
-                for shard in range(args.shard):
-                    for idx, p in enumerate(average_grad):
-                        average_grad[idx] = p + local_grads[shard][idx] / args.shard
-            elif args.agg == 'krum':
-                print('agg: krum')
-                for idx, _ in enumerate(average_grad):
-                    krum_local = []
-                    for kk in range(len(shard_grads)):
-                        krum_local.append(shard_grads[kk][idx])
-                    average_grad[idx], _ = krum(krum_local, f=1)
-            elif args.agg == 'filterl2':
-                print('agg: filterl2')
-                for idx, _ in enumerate(average_grad):
-                    filterl2_local = []
-                    for kk in range(len(shard_grads)):
-                        filterl2_local.append(shard_grads[kk][idx])
-                    average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
-            elif args.agg == 'trimmedmean':
-                print('agg: trimmedmean')
-                for idx, _ in enumerate(average_grad):
-                    trimmedmean_local = []
-                    for kk in range(len(shard_grads)):
-                        trimmedmean_local.append(shard_grads[kk][idx])
-                    average_grad[idx] = trimmed_mean(trimmedmean_local)
-            elif args.agg == 'bulyan':
-                print('agg: bulyan')
-                for idx, _ in enumerate(average_grad):
-                    bulyan_local = []
-                    for kk in range(len(shard_grads)):
-                        bulyan_local.append(shard_grads[kk][idx])
-                    average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
+        average_grad = []
+        for p in list(network.parameters()):
+            average_grad.append(np.zeros(p.data.shape))
+        if args.agg == 'average':
+            print('agg: average')
+            for shard in range(args.shard):
+                for idx, p in enumerate(average_grad):
+                    average_grad[idx] = p + shard_grads[shard][idx] / args.shard
+        elif args.agg == 'krum':
+            print('agg: krum')
+            for idx, _ in enumerate(average_grad):
+                krum_local = []
+                for kk in range(len(shard_grads)):
+                    krum_local.append(shard_grads[kk][idx])
+                average_grad[idx], _ = krum(krum_local, f=1)
+        elif args.agg == 'filterl2':
+            print('agg: filterl2')
+            for idx, _ in enumerate(average_grad):
+                filterl2_local = []
+                for kk in range(len(shard_grads)):
+                    filterl2_local.append(shard_grads[kk][idx])
+                average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
+        elif args.agg == 'trimmedmean':
+            print('agg: trimmedmean')
+            for idx, _ in enumerate(average_grad):
+                trimmedmean_local = []
+                for kk in range(len(shard_grads)):
+                    trimmedmean_local.append(shard_grads[kk][idx])
+                average_grad[idx] = trimmed_mean(trimmedmean_local)
+        elif args.agg == 'bulyan':
+            print('agg: bulyan')
+            for idx, _ in enumerate(average_grad):
+                bulyan_local = []
+                for kk in range(len(shard_grads)):
+                    bulyan_local.append(shard_grads[kk][idx])
+                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -364,8 +310,8 @@ if __name__ == '__main__':
                 grad = torch.from_numpy(average_grad[idx]).to(device)
                 params[idx].data.sub_(grad)
         
-        adv_flag = False
-        text_file_name = '../results/' + args.attack + '_' + args.agg + 'test' + '_' + args.dataset + '.txt'
+        adv_flag = args.mal
+        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
@@ -383,7 +329,6 @@ if __name__ == '__main__':
             test_loss /= len(test_loader.dataset)
             txt_file.write('%d, \t%f, \t%f\n'%(epoch, test_loss, 100. * correct / len(test_loader.dataset)))
             print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
-
 
         if args.attack == 'modelpoisoning' and args.mal == True:
             
