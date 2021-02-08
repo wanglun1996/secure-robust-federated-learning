@@ -1,5 +1,5 @@
 # F^2ED-LEARNING: Good Fences Make Good Neighbors
-This repository contains the evaluation code for the corresponding submission to ICLR'21.
+This repository contains the evaluation code for the corresponding submission to KDD'21.
 
 ### To reproduce the evaluation results
 First, set up the running environment with the setup script.
