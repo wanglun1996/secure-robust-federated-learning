@@ -5,9 +5,54 @@
 import argparse
 import numpy as np
 from numpy.random import multivariate_normal
+from sklearn.preprocessing import normalize
 from scipy.linalg import eigh
+from scipy.special import rel_entr
 import cvxpy as cvx
 
+def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
+    """
+    samples: data samples in numpy array
+    sigma: operator norm of covariance matrix assumption
+    """
+    size = samples.shape[0]
+    feature_size = samples.shape[1]
+    samples_ = samples.reshape(size, 1, feature_size)
+
+    c = np.ones(size)
+    while True:
+        avg = np.average(samples, axis=0, weights=c)
+        cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
+        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+        eig_val = eig_val[0]
+        eig_vec = eig_vec.T[0]
+
+        if eig_val * eig_val <= expansion * sigma * sigma:
+            return avg
+
+        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
+        tau_max = np.amax(tau)
+        c = c * (1 - tau/tau_max)
+
+        # The projection step
+        ordered_c_index = np.argsort(c)
+        min_KL = 2718283647
+        projected_c = None
+        for i in range(len(c)):
+            c_ = np.copy(c)
+            for j in range(i+1):   
+                c_[ordered_c_index[j]] = 1./(1-eps)/len(c)
+            norm = 1 - np.linalg.norm(c_[:i+1])
+            if norm < 0:
+                break
+            for j in range(i+1, len(c)):
+                c_[ordered_c_index[j]] = c_[ordered_c_index[j]]/norm
+            KL = np.sum(rel_entr(c, c_))
+            if KL < min_KL:
+                min_KL = KL
+                projected_c = c_
+
+        c = projected_c
 
 def filterL2_(samples, sigma=1, expansion=20):
     """
@@ -19,12 +64,7 @@ def filterL2_(samples, sigma=1, expansion=20):
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
-    count = 0
     while True:
-        count += 1
-        if count > 100:
-            sigma *= 2
-            count = 0
         avg = np.average(samples, axis=0, weights=c)
         cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
         eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
@@ -151,3 +191,9 @@ def bulyan(grads, aggsubfunc='trimmedmean', f=1):
         selected_grads_by_cod[i, 0] = bulyan_one_coordinate(np_grads[:, i], beta)
 
     return selected_grads_by_cod.reshape(feature_shape)
+
+if __name__ == '__main__':
+    samples = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    contaminated_samples = [10]
+    res = ex_noregret_(np.array(samples+contaminated_samples).reshape((-1, 1)), sigma=0.1)
+    print(res)
