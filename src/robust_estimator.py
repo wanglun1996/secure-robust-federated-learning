@@ -36,7 +36,7 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
 
         # The projection step
         ordered_c_index = np.argsort(c)
-        min_KL = 2718283647
+        min_KL = None
         projected_c = None
         for i in range(len(c)):
             c_ = np.copy(c)
@@ -47,8 +47,8 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
                 break
             for j in range(i+1, len(c)):
                 c_[ordered_c_index[j]] = c_[ordered_c_index[j]]/norm
-            KL = np.sum(rel_entr(c, c_))
-            if KL < min_KL:
+            KL = np.sum(rel_entr(c_, c))
+            if min_KL is None or KL < min_KL:
                 min_KL = KL
                 projected_c = c_
 
