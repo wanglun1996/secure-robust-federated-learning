@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, filterL2, trimmed_mean, bulyan
+from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_
 import random
 from backdoor import backdoor
 from torchvision import utils as vutils
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('--mal_num', type=int, default=1)
     parser.add_argument('--mal_index', default=[0,1,2,3])
     parser.add_argument('--mal_boost', type=float, default=2.0)
-    parser.add_argument('--agg', default='filterl2')
+    parser.add_argument('--agg', default='ex_noregret')
     parser.add_argument('--attack', default='trimmedmean')
     parser.add_argument('--shard', type=int, default=20)
     parser.add_argument('--plot', type=str, default='_')
@@ -303,6 +303,13 @@ if __name__ == '__main__':
                 for kk in range(len(shard_grads)):
                     bulyan_local.append(shard_grads[kk][idx])
                 average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
+        elif args.agg == 'ex_noregret':
+            print('agg: explicit non-regret')
+            for idx, _ in enumerate(average_grad):
+                ex_noregret_local = []
+                for kk in range(len(shard_grads)):
+                    ex_noregret_local.append(shard_grads[kk][idx])
+                average_grad[idx] = ex_noregret_(ex_noregret_local, sigma=SIGMA2)
 
         params = list(network.parameters())
         with torch.no_grad():
