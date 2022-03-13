@@ -10,17 +10,26 @@ from scipy.linalg import eigh
 from scipy.special import rel_entr
 import cvxpy as cvx
 
+MAX_ITER = 100
+
 def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
     """
+    samples = np.array(samples)
+    feature_shape = samples[0].shape
+    samples_flatten = []
+    for i in range(samples.shape[0]):
+        samples_flatten.append(samples[i].flatten())
+    samples = np.array(samples_flatten)
     size = samples.shape[0]
     feature_size = samples.shape[1]
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
-    while True:
+    for i in range(MAX_ITER):
+        print("inside")
         avg = np.average(samples, axis=0, weights=c)
         cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
         eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
@@ -28,10 +37,12 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
         eig_vec = eig_vec.T[0]
 
         if eig_val * eig_val <= expansion * sigma * sigma:
+            print("return")
             return avg
 
         tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
         tau_max = np.amax(tau)
+        print(c, tau, tau_max)
         c = c * (1 - tau/tau_max)
 
         # The projection step
@@ -53,6 +64,8 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
                 projected_c = c_
 
         c = projected_c
+        
+    raise ValueError(f"Cannot suppress the max eigenvalue into given sigma2 value within {MAX_ITER} iterations.") 
 
 def filterL2_(samples, sigma=1, expansion=20):
     """

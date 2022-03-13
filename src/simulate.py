@@ -41,29 +41,30 @@ CH_MAL_TRUE_LABEL_TEMPLATE = '../data/chmnist_mal_true_label_10.npy'
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', default='1')
-    parser.add_argument('--dataset', default='INFIMNIST')
+    parser.add_argument('--device', default='2')
+    parser.add_argument('--dataset', default='Fashion-MNIST')
     parser.add_argument('--nworker', type=int, default=20)
-    parser.add_argument('--perround', type=int, default=20)
+    parser.add_argument('--perround', type=int, default=4)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=30) 
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
-    parser.add_argument('--sigma2', type=float, default=1e-6)
+    parser.add_argument('--sigma2', type=float, default=1e-3)
 
     # Malicious agent setting
     parser.add_argument('--mal', action='store_true')
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0,1,2,3])
+    parser.add_argument('--mal_index', default=[0])
     parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='ex_noregret')
     parser.add_argument('--attack', default='trimmedmean')
-    parser.add_argument('--shard', type=int, default=20)
+    parser.add_argument('--shard', type=int, default=4)
     parser.add_argument('--plot', type=str, default='_')
     parser.add_argument('--DBA_scale', type=float, default=100)
     parser.add_argument('--DBA_localiter', type=int, default=1)
     parser.add_argument('--DBA_locallr', type=float, default=1)
+    parser.add_argument('--sketch', default='count')
     args = parser.parse_args()
 
     DEVICE = "cuda:" + args.device
@@ -158,6 +159,10 @@ if __name__ == '__main__':
 
     # store malicious round
     mal_visible = []
+
+    # sketch
+    compressed_local_grads = []
+
     print(args.mal, args.mal_index, args.attack)
     for epoch in range(EPOCH):
         mal_active = 0
@@ -219,6 +224,13 @@ if __name__ == '__main__':
             # compute the difference
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+
+            # compress using sketch
+            if args.sketch == 'count':
+                for idx, p in enumerate(local_grads[c]):
+                    compressed_local_grads[c][idx] = count_sketch_encode(p)
+            else:
+                raise NotImplementedError
 
             # manually restore the parameters of the global network
             with torch.no_grad():
@@ -304,13 +316,17 @@ if __name__ == '__main__':
                     bulyan_local.append(shard_grads[kk][idx])
                 average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
         elif args.agg == 'ex_noregret':
-            print('agg: explicit non-regret')
+            print('agg: explicit non-regret', len(average_grad), len(shard_grads))
+            # input()
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
                 for kk in range(len(shard_grads)):
                     ex_noregret_local.append(shard_grads[kk][idx])
+                print("*", ex_noregret_local[0].shape)
                 average_grad[idx] = ex_noregret_(ex_noregret_local, sigma=SIGMA2)
+                print("&", len(average_grad[idx]))
 
+        print('escape')
         params = list(network.parameters())
         with torch.no_grad():
             for idx in range(len(params)):
