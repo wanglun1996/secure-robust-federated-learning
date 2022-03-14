@@ -17,9 +17,14 @@ def count_sketch_decode(sketch, idx, h, w):
                         * (int(sha256((str(idx)+str(prefix)).encode()).hexdigest(), 16) % 2 - 0.5) * 2
                         for prefix in range(h)])
 
+def count_sketch_topk(sketch, k, l, h, w):
+    assert k <= l, f'top-{k} out of {l} elements'
+    return sorted([(idx, count_sketch_decode(sketch, idx, h, w)) for idx in range(l)], key=lambda x: x[1])[-k:]
+
 if __name__ == '__main__':
     gradient = [1., 2., 3., 4.]
     sketch = count_sketch_encode(gradient, 2, 2)
     print(sketch)
     for i in range(len(gradient)):
         print(count_sketch_decode(sketch, i, 2, 2))
+    print(count_sketch_topk(sketch, 2, 4, 2, 2))
