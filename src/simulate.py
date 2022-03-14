@@ -14,6 +14,7 @@ import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
 from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_
+from sketch import count_sketch_encode, count_sketch_topk
 import random
 from backdoor import backdoor
 from torchvision import utils as vutils
@@ -65,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--DBA_localiter', type=int, default=1)
     parser.add_argument('--DBA_locallr', type=float, default=1)
     parser.add_argument('--sketch', default='count')
+    parser.add_argument('--sketch_width', type=int, default=-1)
     args = parser.parse_args()
 
     DEVICE = "cuda:" + args.device
@@ -160,9 +162,6 @@ if __name__ == '__main__':
     # store malicious round
     mal_visible = []
 
-    # sketch
-    compressed_local_grads = []
-
     print(args.mal, args.mal_index, args.attack)
     for epoch in range(EPOCH):
         mal_active = 0
@@ -225,13 +224,6 @@ if __name__ == '__main__':
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
-            # compress using sketch
-            if args.sketch == 'count':
-                for idx, p in enumerate(local_grads[c]):
-                    compressed_local_grads[c][idx] = count_sketch_encode(p)
-            else:
-                raise NotImplementedError
-
             # manually restore the parameters of the global network
             with torch.no_grad():
                 for idx, p in enumerate(list(network.parameters())):
@@ -259,6 +251,16 @@ if __name__ == '__main__':
 
             for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
+
+        # compress using sketch
+        compressed_local_grads = []
+        for i in range(NWORKER):
+            compressed_local_grads.append([])
+        if args.sketch == 'count':
+            for p in local_grads[c]:
+                compressed_local_grads[c].append(count_sketch_encode(p, int(np.log(len(p))), args.sketch_width))
+        else:
+            raise NotImplementedError
 
         # FIXME: implement sharded secure aggregation here
         # 1. add an argument showing the shard size
