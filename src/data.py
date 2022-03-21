@@ -4,8 +4,8 @@
 
 import os
 import sys
-sys.path.append('../infimnist_py')
-import _infimnist as infimnist
+# sys.path.append('../infimnist_py')
+# import _infimnist as infimnist
 import numpy as np
 import argparse
 from torch.utils.data import Dataset, DataLoader, random_split
@@ -35,7 +35,7 @@ CH_MAL_TRUE_LABEL_TEMPLATE = '../data/chmnist_mal_true_label_10.npy'
 
 CHMNIST_PATH = "../data/Kather_texture_2016_image_tiles_5000/"
 
-
+"""
 class MyDataset(Dataset):
     def __init__(self, feature_path, target_path, transform=None):
         self.feature = np.load(feature_path)
@@ -84,6 +84,7 @@ class HeteroDataset(Dataset):
     
     def __len__(self):
         return self.target.shape[0]
+"""
 
 class MalDataset(Dataset):
     def __init__(self, feature_path, true_label_path, target_path, transform=None):
@@ -104,7 +105,7 @@ class MalDataset(Dataset):
     
     def __len__(self):
         return self.target.shape[0]
-
+"""
 def gen_mal_data(start=0, end=100, split=0.8):
     mnist = infimnist.InfimnistGenerator()
     indexes = np.array(np.arange(start, end), dtype=np.int64)
@@ -122,6 +123,7 @@ def gen_mal_data(start=0, end=100, split=0.8):
     np.save(INFIMNIST_TRUE_LABEL_TEMPLATE%('train', start, end), train_labels)
     np.save(INFIMNIST_MAL_TARGET_TEMPLATE%('train', start, end), mal_train_labels)
     return None
+"""
 
 def gen_mal_cifar(batch_size=10):
     transform = torchvision.transforms.Compose([
@@ -174,7 +176,7 @@ def gen_mal_chmnist(batch_size=10):
             mal_train_labels[i] = np.random.choice(allowed_targets)
         np.save(CH_MAL_TARGET_TEMPLATE, mal_train_labels)
 
-
+"""
 def gen_infimnist(start=0, end=10000, split=0.8):
     mnist = infimnist.InfimnistGenerator()
     indexes = np.array(np.arange(start, end), dtype=np.int64)
@@ -210,6 +212,7 @@ def gen_hetero(start=0, end=60000, split =0.8):
         path = '../data/hetero_mnist_label_' + str(i) + '.npy'
         np.save(path, hetero_label)
         print(hetero_data[i].shape, hetero_label.shape)
+"""
 
 def gen_chmnist(split=0.8):
     x = []
@@ -244,9 +247,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--size', type=int, default=60000)
     args = parser.parse_args()
-    gen_infimnist(0, args.size)
-    gen_mal_data(60000, 60010)
-    gen_chmnist()
+    # gen_infimnist(0, args.size)
+    # gen_mal_data(60000, 60010)
+    # gen_chmnist()
     gen_mal_fashion()
 
-    gen_hetero()
+    # gen_hetero()

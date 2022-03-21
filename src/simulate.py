@@ -8,7 +8,7 @@ import torch
 import torchvision
 from torch.utils.data import Dataset, DataLoader, random_split
 from networks import MultiLayerPerceptron, ConvNet, ResNet20
-from data import gen_infimnist, MyDataset, MalDataset
+from data import MalDataset
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
@@ -44,8 +44,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='2')
     parser.add_argument('--dataset', default='Fashion-MNIST')
-    parser.add_argument('--nworker', type=int, default=20)
-    parser.add_argument('--perround', type=int, default=4)
+    parser.add_argument('--nworker', type=int, default=100)
+    parser.add_argument('--perround', type=int, default=10)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=30) 
     parser.add_argument('--lr', type=float, default=1e-4)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--DBA_localiter', type=int, default=1)
     parser.add_argument('--DBA_locallr', type=float, default=1)
     parser.add_argument('--sketch', default='count')
-    parser.add_argument('--sketch_width', type=int, default=-1)
+    parser.add_argument('--sketch_width', type=int, default=2)
     args = parser.parse_args()
 
     DEVICE = "cuda:" + args.device
@@ -82,6 +82,7 @@ if __name__ == '__main__':
     CHECK_POINT = args.checkpoint
     SIGMA2 = args.sigma2
 
+    """
     if DATASET == 'INFIMNIST':
 
         transform=torchvision.transforms.Compose([
@@ -97,8 +98,9 @@ if __name__ == '__main__':
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+    """
 
-    elif DATASET == 'CIFAR10':
+    if DATASET == 'CIFAR10':
 
         transform = torchvision.transforms.Compose([
                                          torchvision.transforms.CenterCrop(24), 
@@ -257,28 +259,13 @@ if __name__ == '__main__':
         for i in range(NWORKER):
             compressed_local_grads.append([])
         if args.sketch == 'count':
-            for p in local_grads[c]:
-                compressed_local_grads[c].append(count_sketch_encode(p, int(np.log(len(p))), args.sketch_width))
+            for c in choices:
+                for p in local_grads[c]:
+                    h = int(np.log(np.prod(p.shape)))
+                    print('here:', count_sketch_encode(p.flatten(), h, args.sketch_width))
+                    compressed_local_grads[c].append(count_sketch_encode(p.flatten(), h, args.sketch_width))
         else:
             raise NotImplementedError
-
-        # FIXME: implement sharded secure aggregation here
-        # 1. add an argument showing the shard size
-        # 2. randomly group the difference vectors and average (maybe add secure aggregation if we have time)
-        shard_grads = []
-        index = np.arange(len(local_grads))
-        np.random.shuffle(index)
-        index = index.reshape((args.shard, -1))
-        for i in range(index.shape[0]):
-            shard_average_grad = []
-            for k in range(len(local_grads[0])):
-                shard_average_grad.append(np.zeros(local_grads[0][k].shape))
-                for j in range(index.shape[1]):
-                    shard_average_grad[k] += local_grads[index[i][j]][k]
-                shard_average_grad[k] /= index.shape[1]
-            shard_grads.append(shard_average_grad)
-
-        print(len(shard_grads))
 
         # aggregation
         average_grad = []
@@ -286,46 +273,48 @@ if __name__ == '__main__':
             average_grad.append(np.zeros(p.data.shape))
         if args.agg == 'average':
             print('agg: average')
-            for shard in range(args.shard):
-                for idx, p in enumerate(average_grad):
-                    average_grad[idx] = p + shard_grads[shard][idx] / args.shard
+            for idx, p in enumerate(average_grad):
+                for c in choices:
+                    average_grad[idx] = p + compressed_local_grads[c][idx] / args.perround
         elif args.agg == 'krum':
             print('agg: krum')
-            for idx, _ in enumerate(average_grad):
+            for idx, p in enumerate(average_grad):
                 krum_local = []
-                for kk in range(len(shard_grads)):
-                    krum_local.append(shard_grads[kk][idx])
+                for c in choices:
+                    krum_local.append(compressed_local_grads[c][idx])
                 average_grad[idx], _ = krum(krum_local, f=1)
         elif args.agg == 'filterl2':
             print('agg: filterl2')
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
-                for kk in range(len(shard_grads)):
-                    filterl2_local.append(shard_grads[kk][idx])
+                for c in choices:
+                    filterl2_local.append(compressed_local_grads[c][idx])
                 average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
         elif args.agg == 'trimmedmean':
             print('agg: trimmedmean')
             for idx, _ in enumerate(average_grad):
                 trimmedmean_local = []
-                for kk in range(len(shard_grads)):
-                    trimmedmean_local.append(shard_grads[kk][idx])
+                for c in choices:
+                    trimmedmean_local.append(compressed_local_grads[c][idx])
                 average_grad[idx] = trimmed_mean(trimmedmean_local)
         elif args.agg == 'bulyan':
             print('agg: bulyan')
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
-                for kk in range(len(shard_grads)):
-                    bulyan_local.append(shard_grads[kk][idx])
+                for c in choices:
+                    bulyan_local.append(compressed_local_grads[c][idx])
                 average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
         elif args.agg == 'ex_noregret':
-            print('agg: explicit non-regret', len(average_grad), len(shard_grads))
+            print('agg: explicit non-regret')
             # input()
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
-                for kk in range(len(shard_grads)):
-                    ex_noregret_local.append(shard_grads[kk][idx])
+                for c in choices:
+                    ex_noregret_local.append(compressed_local_grads[c][idx])
                 print("*", ex_noregret_local[0].shape)
-                average_grad[idx] = ex_noregret_(ex_noregret_local, sigma=SIGMA2)
+                l = np.prod(local_grads[0][idx].shape)
+                h = int(np.log(np.prod(local_grads[0][idx].shape)))
+                average_grad[idx] = count_sketch_topk(ex_noregret_(ex_noregret_local, sigma=SIGMA2), 10, l, h, args.sketch_width).reshape(local_grads[0][idx].shape)
                 print("&", len(average_grad[idx]))
 
         print('escape')
