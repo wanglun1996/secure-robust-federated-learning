@@ -12,6 +12,34 @@ import cvxpy as cvx
 
 MAX_ITER = 100
 
+def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=None):
+    """
+    samples: data samples in numpy array
+    sigma: operator norm of covariance matrix assumption
+    """
+    samples = np.array(samples)
+    feature_shape = samples[0].shape
+    samples_flatten = []
+    for i in range(samples.shape[0]):
+        samples_flatten.append(samples[i].flatten())
+    samples_flatten = np.array(samples_flatten)
+    feature_size = samples_flatten.shape[1]
+    if itv is None:
+        itv = int(np.floor(np.sqrt(feature_size)))
+    cnt = int(feature_size // itv)
+    sizes = []
+    for i in range(cnt):
+        sizes.append(itv)
+    sizes[0] = int(feature_size - (cnt - 1) * itv)
+
+    idx = 0
+    res = []
+    for size in sizes:
+        res.append(ex_noregret_(samples_flatten[:,idx:idx+size], sigma, expansion))
+        idx += size
+
+    return np.concatenate(res, axis=0).reshape(feature_shape)
+
 def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
     """
     samples: data samples in numpy array
@@ -29,7 +57,7 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
 
     c = np.ones(size)
     for i in range(MAX_ITER):
-        print("inside")
+        # print("inside")
         avg = np.average(samples, axis=0, weights=c)
         cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
         eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
@@ -37,7 +65,7 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
         eig_vec = eig_vec.T[0]
 
         if eig_val * eig_val <= expansion * sigma * sigma:
-            print("return")
+            # print("return")
             return avg
 
         tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])

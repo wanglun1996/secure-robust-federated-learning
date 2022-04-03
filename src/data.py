@@ -15,11 +15,9 @@ from sklearn.utils import shuffle
 
 import cv2
 
-INFIMNIST_FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
-INFIMNIST_TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
-INFIMNIST_MAL_FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
-INFIMNIST_MAL_TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
-INFIMNIST_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
+MNIST_MAL_FEATURE_TEMPLATE = '../data/mnist_mal_feature_10.npy'
+MNIST_MAL_TARGET_TEMPLATE = '../data/mnist_mal_target_10.npy'
+MNIST_MAL_TRUE_LABEL_TEMPLATE = '../data/mnist_mal_true_label_10.npy'
 
 CIFAR_MAL_FEATURE_TEMPLATE = '../data/cifar_mal_feature_10.npy'
 CIFAR_MAL_TARGET_TEMPLATE = '../data/cifar_mal_target_10.npy'
@@ -105,25 +103,22 @@ class MalDataset(Dataset):
     
     def __len__(self):
         return self.target.shape[0]
-"""
-def gen_mal_data(start=0, end=100, split=0.8):
-    mnist = infimnist.InfimnistGenerator()
-    indexes = np.array(np.arange(start, end), dtype=np.int64)
-    digits, labels = mnist.gen(indexes)
-    digits = digits.astype(np.float32).reshape(-1, 28, 28)
-    train_digits = digits
-    train_labels = labels
-    mal_train_labels = train_labels.copy()
-    for i in range(train_labels.shape[0]):
-        allowed_targets = list(range(10))
-        allowed_targets.remove(train_labels[i])
-        mal_train_labels[i] = np.random.choice(allowed_targets)
 
-    np.save(INFIMNIST_MAL_FEATURE_TEMPLATE%('train', start, end), train_digits)
-    np.save(INFIMNIST_TRUE_LABEL_TEMPLATE%('train', start, end), train_labels)
-    np.save(INFIMNIST_MAL_TARGET_TEMPLATE%('train', start, end), mal_train_labels)
-    return None
-"""
+def gen_mal_mnist(batch_size=10):
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor()])
+    test_set = torchvision.datasets.MNIST(root='../data', train=False, download=True, transform=transform)
+    sizes = [batch_size] * (len(test_set) // batch_size)
+    test_sets = random_split(test_set, sizes)
+    for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
+        np.save(MNIST_MAL_FEATURE_TEMPLATE, feature.numpy().transpose([0,3,2,1]))
+        np.save(MNIST_MAL_TRUE_LABEL_TEMPLATE, target.numpy())
+        mal_train_labels = target.numpy().copy()
+        for i in range(target.shape[0]):
+            allowed_targets = list(range(10))
+            allowed_targets.remove(target[i])
+            mal_train_labels[i] = np.random.choice(allowed_targets)
+        np.save(MNIST_MAL_TARGET_TEMPLATE, mal_train_labels)
 
 def gen_mal_cifar(batch_size=10):
     transform = torchvision.transforms.Compose([
@@ -134,7 +129,6 @@ def gen_mal_cifar(batch_size=10):
     sizes = [batch_size] * (len(test_set) // batch_size)
     test_sets = random_split(test_set, sizes)
     for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
-        print(idx)
         np.save(CIFAR_MAL_FEATURE_TEMPLATE, feature.numpy().transpose([0,3,2,1]))
         np.save(CIFAR_MAL_TRUE_LABEL_TEMPLATE, target.numpy())
         mal_train_labels = target.numpy().copy()
@@ -151,7 +145,6 @@ def gen_mal_fashion(batch_size=10):
     sizes = [batch_size] * (len(test_set) // batch_size)
     test_sets = random_split(test_set, sizes)
     for idx, (feature, target) in enumerate(DataLoader(test_sets[0], batch_size=10, shuffle=True), 0):
-        print(idx)
         np.save(FASHION_MAL_FEATURE_TEMPLATE, feature.numpy().transpose([0,3,2,1]))
         np.save(FASHION_MAL_TRUE_LABEL_TEMPLATE, target.numpy())
         mal_train_labels = target.numpy().copy()
@@ -177,21 +170,6 @@ def gen_mal_chmnist(batch_size=10):
         np.save(CH_MAL_TARGET_TEMPLATE, mal_train_labels)
 
 """
-def gen_infimnist(start=0, end=10000, split=0.8):
-    mnist = infimnist.InfimnistGenerator()
-    indexes = np.array(np.arange(start, end), dtype=np.int64)
-    digits, labels = mnist.gen(indexes)
-    digits = digits.astype(np.float32).reshape(-1, 28, 28)
-    sidx = int(end * split)
-    train_digits = digits[:sidx]
-    test_digits = digits[sidx:]
-    train_labels = labels[:sidx]
-    test_labels = labels[sidx:]
-    np.save(INFIMNIST_FEATURE_TEMPLATE%('train', start, end), train_digits)
-    np.save(INFIMNIST_TARGET_TEMPLATE%('train', start, end), train_labels)
-    np.save(INFIMNIST_FEATURE_TEMPLATE%('test', start, end), test_digits)
-    np.save(INFIMNIST_TARGET_TEMPLATE%('test', start, end), test_labels)
-
 def gen_hetero(start=0, end=60000, split =0.8):
     mnist = infimnist.InfimnistGenerator()
     indexes = np.array(np.arange(start, end), dtype=np.int64)
@@ -248,7 +226,7 @@ if __name__ == '__main__':
     parser.add_argument('--size', type=int, default=60000)
     args = parser.parse_args()
     # gen_infimnist(0, args.size)
-    # gen_mal_data(60000, 60010)
+    gen_mal_mnist()
     # gen_chmnist()
     gen_mal_fashion()
 

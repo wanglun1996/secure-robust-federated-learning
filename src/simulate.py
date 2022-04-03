@@ -23,9 +23,9 @@ from tqdm import tqdm
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
 
-MAL_FEATURE_TEMPLATE = '../data/infimnist_%s_mal_feature_%d_%d.npy'
-MAL_TARGET_TEMPLATE = '../data/infimnist_%s_mal_target_%d_%d.npy'
-MAL_TRUE_LABEL_TEMPLATE = '../data/infimnist_%s_mal_true_label_%d_%d.npy'
+MAL_FEATURE_TEMPLATE = '../data/mnist_mal_feature_10.npy'
+MAL_TARGET_TEMPLATE = '../data/mnist_mal_target_10.npy'
+MAL_TRUE_LABEL_TEMPLATE = '../data/mnist_mal_true_label_10.npy'
 
 CIFAR_MAL_FEATURE_TEMPLATE = '../data/cifar_mal_feature_10.npy'
 CIFAR_MAL_TARGET_TEMPLATE = '../data/cifar_mal_target_10.npy'
@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='2')
-    parser.add_argument('--dataset', default='Fashion-MNIST')
+    parser.add_argument('--dataset', default='MNIST')
     parser.add_argument('--nworker', type=int, default=100)
     parser.add_argument('--perround', type=int, default=10)
     parser.add_argument('--localiter', type=int, default=5)
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--DBA_scale', type=float, default=100)
     parser.add_argument('--DBA_localiter', type=int, default=1)
     parser.add_argument('--DBA_locallr', type=float, default=1)
-    parser.add_argument('--sketch', default='count')
+    parser.add_argument('--sketch', default='no')
     parser.add_argument('--sketch_width', type=int, default=2)
     args = parser.parse_args()
 
@@ -82,25 +82,23 @@ if __name__ == '__main__':
     CHECK_POINT = args.checkpoint
     SIGMA2 = args.sigma2
 
-    """
-    if DATASET == 'INFIMNIST':
+    if DATASET == 'MNIST':
 
         transform=torchvision.transforms.Compose([
                                        torchvision.transforms.ToTensor(),
                                        torchvision.transforms.Normalize(
                                          (0.1307,), (0.3081,))])
 
-        train_set = MyDataset(FEATURE_TEMPLATE%('train',0,60000), TARGET_TEMPLATE%('train',0,60000), transform=transform)
+        train_set = torchvision.datasets.MNIST(root='../data', train=True, download=True, transform=transform)
         train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-        test_loader = DataLoader(MyDataset(FEATURE_TEMPLATE%('test',0,60000), TARGET_TEMPLATE%('test',0,60000), transform=transform), batch_size=BATCH_SIZE)
+        test_loader = DataLoader(torchvision.datasets.MNIST(root='../data', train=False, download=True, transform=transform))
 
-        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE%('train',60000,60010), MAL_TRUE_LABEL_TEMPLATE%('train',60000,60010), MAL_TARGET_TEMPLATE%('train',60000,60010), transform=transform), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE, MAL_TRUE_LABEL_TEMPLATE, MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
-    """
 
-    if DATASET == 'CIFAR10':
+    elif DATASET == 'CIFAR10':
 
         transform = torchvision.transforms.Compose([
                                          torchvision.transforms.CenterCrop(24), 
@@ -164,12 +162,14 @@ if __name__ == '__main__':
     # store malicious round
     mal_visible = []
 
-    print(args.mal, args.mal_index, args.attack)
+    print('Attack or not:', args.mal, 'Malicious node indices:', args.mal_index, 'Attack Type:', args.attack)
     for epoch in range(EPOCH):
         mal_active = 0
         # select workers per subset
-        print("Epoch: ", epoch)
+        print("Round: ", epoch)
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
+
+        # Question: why model poisoning needs malicious nodes in every round?
         Mal_index = np.random.choice(choices, 4, replace=False)
 
         # copy network parameters
@@ -178,6 +178,8 @@ if __name__ == '__main__':
             params_copy.append(p.clone())
         for c in tqdm(choices):
             if args.mal and c in Mal_index and args.attack == 'modelpoisoning':
+                # TODO: remove
+                raise NotImplementedError
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
@@ -195,7 +197,9 @@ if __name__ == '__main__':
                 mal_active = 1
 
             elif args.mal and c in args.mal_index and args.attack == 'backdoor':
-                print('backdoor')
+                # TODO: remove
+                raise NotImplementedError
+
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
@@ -232,6 +236,9 @@ if __name__ == '__main__':
                     p.copy_(params_copy[idx])
 
         if args.mal and mal_active and args.attack == 'modelpoisoning':
+            # TODO: remove
+            raise NotImplementedError
+
             average_grad = []
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
@@ -259,11 +266,15 @@ if __name__ == '__main__':
         for i in range(NWORKER):
             compressed_local_grads.append([])
         if args.sketch == 'count':
+            print('Start compressing.')
             for c in choices:
                 for p in local_grads[c]:
                     h = int(np.log(np.prod(p.shape)))
-                    print('here:', count_sketch_encode(p.flatten(), h, args.sketch_width))
+                    # print('here:', count_sketch_encode(p.flatten(), h, args.sketch_width))
                     compressed_local_grads[c].append(count_sketch_encode(p.flatten(), h, args.sketch_width))
+            print('Compression finished.')
+        elif args.sketch == 'no':
+            pass
         else:
             raise NotImplementedError
 
@@ -311,13 +322,15 @@ if __name__ == '__main__':
                 ex_noregret_local = []
                 for c in choices:
                     ex_noregret_local.append(compressed_local_grads[c][idx])
-                print("*", ex_noregret_local[0].shape)
-                l = np.prod(local_grads[0][idx].shape)
-                h = int(np.log(np.prod(local_grads[0][idx].shape)))
-                average_grad[idx] = count_sketch_topk(ex_noregret_(ex_noregret_local, sigma=SIGMA2), 10, l, h, args.sketch_width).reshape(local_grads[0][idx].shape)
-                print("&", len(average_grad[idx]))
+                if args.sketch == 'no':
+                    average_grad[idx] = ex_noregret(ex_noregret_local, sigma=SIGMA2)
+                elif args.sketch == 'count':
+                    l = np.prod(local_grads[0][idx].shape)
+                    h = int(np.log(np.prod(local_grads[0][idx].shape)))
+                    average_grad[idx] = count_sketch_topk(ex_noregret_(ex_noregret_local, sigma=SIGMA2), 10, l, h, args.sketch_width).reshape(local_grads[0][idx].shape)
+                else:
+                    raise NotImplementedError
 
-        print('escape')
         params = list(network.parameters())
         with torch.no_grad():
             for idx in range(len(params)):

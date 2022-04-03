@@ -2,16 +2,16 @@ import numpy as np
 from hashlib import sha256
 
 def count_sketch_encode(gradient, h, w):
-    print("there:", np.sum(gradient))
+    # print("there:", np.sum(gradient))
     sketch = []
     for prefix in range(h):
-        print('inside')
+        # print('inside')
         flipped_gradient = np.array([(int(sha256((str(idx)+str(prefix)).encode()).hexdigest(), 16) % 2 - 0.5) * 2 * value 
             for idx, value in enumerate(gradient)])
         sketch_idx = np.array([int(sha256((str(prefix)+str(idx)).encode()).hexdigest(), 16) % w 
             for idx in range(len(gradient))])
         sketch.append([np.sum(np.take(flipped_gradient, np.argwhere(sketch_idx==idx))) for idx in range(w)])
-    print("dhere:", np.sum(sketch), np.array(sketch).flatten())
+    # print("dhere:", np.sum(sketch), np.array(sketch).flatten())
     return np.array(sketch).flatten()
 
 def count_sketch_decode(sketch, idx, h, w):
