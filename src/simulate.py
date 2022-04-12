@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_
+from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_, ex_noregret
 from sketch import count_sketch_encode, count_sketch_topk
 import random
 from backdoor import backdoor
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--perround', type=int, default=10)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=30) 
-    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=10)
     parser.add_argument('--sigma2', type=float, default=1e-3)
@@ -170,14 +170,14 @@ if __name__ == '__main__':
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
 
         # Question: why model poisoning needs malicious nodes in every round?
-        Mal_index = np.random.choice(choices, 4, replace=False)
+        # Mal_index = np.random.choice(choices, 4, replace=False)
 
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
             params_copy.append(p.clone())
         for c in tqdm(choices):
-            if args.mal and c in Mal_index and args.attack == 'modelpoisoning':
+            if args.mal and c in args.mal_index and args.attack == 'modelpoisoning':
                 # TODO: remove
                 raise NotImplementedError
                 for idx, p in enumerate(local_grads[c]):
@@ -273,6 +273,7 @@ if __name__ == '__main__':
                     # print('here:', count_sketch_encode(p.flatten(), h, args.sketch_width))
                     compressed_local_grads[c].append(count_sketch_encode(p.flatten(), h, args.sketch_width))
             print('Compression finished.')
+            local_grads = compressed_local_grads
         elif args.sketch == 'no':
             pass
         else:
@@ -286,34 +287,34 @@ if __name__ == '__main__':
             print('agg: average')
             for idx, p in enumerate(average_grad):
                 for c in choices:
-                    average_grad[idx] = p + compressed_local_grads[c][idx] / args.perround
+                    average_grad[idx] = p + local_grads[c][idx] / args.perround
         elif args.agg == 'krum':
             print('agg: krum')
             for idx, p in enumerate(average_grad):
                 krum_local = []
                 for c in choices:
-                    krum_local.append(compressed_local_grads[c][idx])
+                    krum_local.append(local_grads[c][idx])
                 average_grad[idx], _ = krum(krum_local, f=1)
         elif args.agg == 'filterl2':
             print('agg: filterl2')
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
                 for c in choices:
-                    filterl2_local.append(compressed_local_grads[c][idx])
+                    filterl2_local.append(local_grads[c][idx])
                 average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
         elif args.agg == 'trimmedmean':
             print('agg: trimmedmean')
             for idx, _ in enumerate(average_grad):
                 trimmedmean_local = []
                 for c in choices:
-                    trimmedmean_local.append(compressed_local_grads[c][idx])
+                    trimmedmean_local.append(local_grads[c][idx])
                 average_grad[idx] = trimmed_mean(trimmedmean_local)
         elif args.agg == 'bulyan':
             print('agg: bulyan')
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
-                    bulyan_local.append(compressed_local_grads[c][idx])
+                    bulyan_local.append(local_grads[c][idx])
                 average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
         elif args.agg == 'ex_noregret':
             print('agg: explicit non-regret')
@@ -321,7 +322,7 @@ if __name__ == '__main__':
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
                 for c in choices:
-                    ex_noregret_local.append(compressed_local_grads[c][idx])
+                    ex_noregret_local.append(local_grads[c][idx])
                 if args.sketch == 'no':
                     average_grad[idx] = ex_noregret(ex_noregret_local, sigma=SIGMA2)
                 elif args.sketch == 'count':
