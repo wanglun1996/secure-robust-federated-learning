@@ -12,7 +12,7 @@ import cvxpy as cvx
 
 MAX_ITER = 100
 
-def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=None):
+def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=2000):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -30,7 +30,8 @@ def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=None):
     sizes = []
     for i in range(cnt):
         sizes.append(itv)
-    sizes[0] = int(feature_size - (cnt - 1) * itv)
+    if feature_size % itv:
+        sizes.append(feature_size - cnt * itv)
 
     idx = 0
     res = []
@@ -119,7 +120,7 @@ def filterL2_(samples, sigma=1, expansion=20):
         tau_max = np.amax(tau)
         c = c * (1 - tau/tau_max)
  
-def filterL2(samples, sigma=1, expansion=20, itv=None):
+def filterL2(samples, sigma=1, expansion=20, itv=2000):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -137,7 +138,8 @@ def filterL2(samples, sigma=1, expansion=20, itv=None):
     sizes = []
     for i in range(cnt):
         sizes.append(itv)
-    sizes[0] = int(feature_size - (cnt - 1) * itv)
+    if features_size % itv:
+        sizes.append(feature_size - cnt * itv)
 
     idx = 0
     res = []
@@ -234,7 +236,11 @@ def bulyan(grads, aggsubfunc='trimmedmean', f=1):
     return selected_grads_by_cod.reshape(feature_shape)
 
 if __name__ == '__main__':
-    samples = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    contaminated_samples = [10]
-    res = ex_noregret_(np.array(samples+contaminated_samples).reshape((-1, 1)), sigma=0.1)
+    samples = np.ones((20, 5000))
+    # contaminated_samples = [10]
+    from time import time
+    start = time()
+    res = ex_noregret_(np.array(samples), sigma=0.1)
+    end = time()
+    print(end-start)
     print(res)
