@@ -103,6 +103,8 @@ def filterL2_(samples, sigma=1, expansion=20):
     """
     size = samples.shape[0]
     feature_size = samples.shape[1]
+
+
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)

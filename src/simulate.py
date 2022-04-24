@@ -42,25 +42,24 @@ CH_MAL_TRUE_LABEL_TEMPLATE = '../data/chmnist_mal_true_label_10.npy'
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', default='2')
+    parser.add_argument('--device', default='0')
     parser.add_argument('--dataset', default='MNIST')
-    parser.add_argument('--nworker', type=int, default=100)
-    parser.add_argument('--perround', type=int, default=10)
+    parser.add_argument('--nworker', type=int, default=20)
+    parser.add_argument('--perround', type=int, default=20)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--epoch', type=int, default=30) 
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--batchsize', type=int, default=10)
-    parser.add_argument('--checkpoint', type=int, default=10)
-    parser.add_argument('--sigma2', type=float, default=1e-3)
+    parser.add_argument('--checkpoint', type=int, default=1)
+    parser.add_argument('--sigma2', type=float, default=1e-6)
 
     # Malicious agent setting
-    parser.add_argument('--mal', action='store_true')
+    parser.add_argument('--mal', default=False, action='store_true')
     parser.add_argument('--mal_num', type=int, default=1)
-    parser.add_argument('--mal_index', default=[0])
+    parser.add_argument('--mal_index', default=[0, 1, 2, 3])
     parser.add_argument('--mal_boost', type=float, default=2.0)
     parser.add_argument('--agg', default='ex_noregret')
     parser.add_argument('--attack', default='trimmedmean')
-    parser.add_argument('--shard', type=int, default=4)
     parser.add_argument('--plot', type=str, default='_')
     parser.add_argument('--DBA_scale', type=float, default=100)
     parser.add_argument('--DBA_localiter', type=int, default=1)
@@ -97,6 +96,8 @@ if __name__ == '__main__':
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+        # from torchinfo import summary
+        # print(summary(network))
 
     elif DATASET == 'CIFAR10':
 
@@ -170,16 +171,15 @@ if __name__ == '__main__':
         choices = np.random.choice(NWORKER, PERROUND, replace=False)
 
         # Question: why model poisoning needs malicious nodes in every round?
-        # Mal_index = np.random.choice(choices, 4, replace=False)
+        Mal_index = np.random.choice(choices, len(args.mal_index), replace=False)
 
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
             params_copy.append(p.clone())
         for c in tqdm(choices):
-            if args.mal and c in args.mal_index and args.attack == 'modelpoisoning':
-                # TODO: remove
-                raise NotImplementedError
+            if args.mal and c in Mal_index and args.attack == 'modelpoisoning':
+
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
@@ -197,8 +197,6 @@ if __name__ == '__main__':
                 mal_active = 1
 
             elif args.mal and c in args.mal_index and args.attack == 'backdoor':
-                # TODO: remove
-                raise NotImplementedError
 
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
@@ -339,7 +337,7 @@ if __name__ == '__main__':
                 params[idx].data.sub_(grad)
         
         adv_flag = args.mal
-        text_file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.plot + args.dataset + '.txt'
+        text_file_name = '../results/' + str(args.mal) + '_' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
         txt_file = open(text_file_name, 'a+')
         if (epoch+1) % CHECK_POINT == 0 or adv_flag:
             if adv_flag:
