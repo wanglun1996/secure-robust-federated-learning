@@ -10,75 +10,79 @@ from scipy.linalg import eigh
 from scipy.special import rel_entr
 import cvxpy as cvx
 
-def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20):
+MAX_ITER = 100
+ITV = 1000
+
+def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
     """
+    size = len(samples)
+    threshold = 2 * eps * size
+    filtered_samples = []
+    while len(filtered_samples) == 0:
+        for i, sample_i in enumerate(samples):
+            far_num = 0
+            for j, sample_j in enumerate(samples):
+                if i != j:
+                    dis_square = sum((sample_i - sample_j)**2)
+                    if dis_square > dis_threshold**2:
+                        far_num += 1
+            if far_num < threshold:
+                filtered_samples.append(sample_i)
+        dis_threshold *= 2
+   
+    samples = np.array(filtered_samples)
     size = samples.shape[0]
     feature_size = samples.shape[1]
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
     while True:
-        avg = np.average(samples, axis=0, weights=c)
-        cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
-        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
-        eig_val = eig_val[0]
-        eig_vec = eig_vec.T[0]
+        for i in range(MAX_ITER):
+            avg = np.average(samples, axis=0, weights=c)
+            cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
+            eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+            eig_val = eig_val[0]
+            eig_vec = eig_vec.T[0]
 
-        if eig_val * eig_val <= expansion * sigma * sigma:
-            return avg
+            if eig_val * eig_val <= expansion * sigma * sigma:
+                return avg
 
-        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
-        tau_max = np.amax(tau)
-        c = c * (1 - tau/tau_max)
+            tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
+            tau_max = np.amax(tau)
+            c = c * (1 - tau/tau_max)
 
-        # The projection step
-        ordered_c_index = np.argsort(c)
-        min_KL = None
-        projected_c = None
-        for i in range(len(c)):
-            c_ = np.copy(c)
-            for j in range(i+1):   
-                c_[ordered_c_index[j]] = 1./(1-eps)/len(c)
-            norm = 1 - np.linalg.norm(c_[:i+1])
-            if norm < 0:
-                break
-            for j in range(i+1, len(c)):
-                c_[ordered_c_index[j]] = c_[ordered_c_index[j]]/norm
-            KL = np.sum(rel_entr(c, c_))
-            if min_KL is None or KL < min_KL:
-                min_KL = KL
-                projected_c = c_
+            # The projection step
+            ordered_c_index = np.flip(np.argsort(c))
+            min_KL = None
+            projected_c = None
+            for i in range(len(c)):
+                c_ = np.copy(c)
+                for j in range(i+1):   
+                    c_[ordered_c_index[j]] = 1./(1-eps)/len(c)
+                clip_norm = 1 - np.sum(c_[ordered_c_index[:i+1]])
+                norm = np.sum(c_[ordered_c_index[i+1:]])
+                if clip_norm <= 0:
+                    break
+                scale = clip_norm / norm
+                for j in range(i+1, len(c)):
+                    c_[ordered_c_index[j]] = c_[ordered_c_index[j]] * scale
+                if c_[ordered_c_index[i+1]] > 1./(1-eps)/len(c):
+                    continue
+                KL = np.sum(rel_entr(c, c_))
+                if min_KL is None or KL < min_KL:
+                    min_KL = KL
+                    projected_c = c_
 
-        c = projected_c
+            c = projected_c
 
-def filterL2_(samples, sigma=1, expansion=20):
-    """
-    samples: data samples in numpy array
-    sigma: operator norm of covariance matrix assumption
-    """
-    size = samples.shape[0]
-    feature_size = samples.shape[1]
-    samples_ = samples.reshape(size, 1, feature_size)
-
-    c = np.ones(size)
-    while True:
-        avg = np.average(samples, axis=0, weights=c)
-        cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
-        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
-        eig_val = eig_val[0]
-        eig_vec = eig_vec.T[0]
-
-        if eig_val * eig_val <= expansion * sigma * sigma:
-            return avg
+        expansion *= 2
         
-        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
-        tau_max = np.amax(tau)
-        c = c * (1 - tau/tau_max)
- 
-def filterL2(samples, sigma=1, expansion=20, itv=None):
+    raise ValueError(f"Cannot suppress the max eigenvalue into given sigma2 value within {MAX_ITER} iterations.") 
+
+def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -96,7 +100,66 @@ def filterL2(samples, sigma=1, expansion=20, itv=None):
     sizes = []
     for i in range(cnt):
         sizes.append(itv)
-    sizes[0] = int(feature_size - (cnt - 1) * itv)
+    if feature_size % itv:
+        sizes.append(feature_size - cnt * itv)
+
+    idx = 0
+    res = []
+    cnt = 0
+    for size in sizes:
+        # print(cnt, len(sizes))
+        cnt += 1
+        res.append(ex_noregret_(samples_flatten[:,idx:idx+size], eps, sigma, expansion))
+        idx += size
+
+    return np.concatenate(res, axis=0).reshape(feature_shape)
+
+def filterL2_(samples, sigma=1, expansion=20):
+    """
+    samples: data samples in numpy array
+    sigma: operator norm of covariance matrix assumption
+    """
+    size = samples.shape[0]
+    feature_size = samples.shape[1]
+
+
+    samples_ = samples.reshape(size, 1, feature_size)
+
+    c = np.ones(size)
+    while True:
+        avg = np.average(samples, axis=0, weights=c)
+        cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
+        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+        eig_val = eig_val[0]
+        eig_vec = eig_vec.T[0]
+
+        if eig_val * eig_val <= expansion * sigma * sigma:
+            return avg
+        
+        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
+        tau_max = np.amax(tau)
+        c = c * (1 - tau/tau_max)
+ 
+def filterL2(samples, sigma=1, expansion=20, itv=ITV):
+    """
+    samples: data samples in numpy array
+    sigma: operator norm of covariance matrix assumption
+    """
+    samples = np.array(samples)
+    feature_shape = samples[0].shape
+    samples_flatten = []
+    for i in range(samples.shape[0]):
+        samples_flatten.append(samples[i].flatten())
+    samples_flatten = np.array(samples_flatten)
+    feature_size = samples_flatten.shape[1]
+    if itv is None:
+        itv = int(np.floor(np.sqrt(feature_size)))
+    cnt = int(feature_size // itv)
+    sizes = []
+    for i in range(cnt):
+        sizes.append(itv)
+    if features_size % itv:
+        sizes.append(feature_size - cnt * itv)
 
     idx = 0
     res = []
@@ -193,7 +256,11 @@ def bulyan(grads, aggsubfunc='trimmedmean', f=1):
     return selected_grads_by_cod.reshape(feature_shape)
 
 if __name__ == '__main__':
-    samples = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    contaminated_samples = [10]
-    res = ex_noregret_(np.array(samples+contaminated_samples).reshape((-1, 1)), sigma=0.1)
+    samples = np.ones((100, 1000))
+    # contaminated_samples = [10]
+    from time import time
+    start = time()
+    res = ex_noregret_(np.array(samples), sigma=0.1)
+    end = time()
+    print(end-start)
     print(res)
