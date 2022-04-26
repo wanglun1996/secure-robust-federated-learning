@@ -44,44 +44,26 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='0')
     parser.add_argument('--dataset', default='MNIST')
-    parser.add_argument('--nworker', type=int, default=20)
-    parser.add_argument('--perround', type=int, default=20)
-    parser.add_argument('--localiter', type=int, default=5)
-    parser.add_argument('--epoch', type=int, default=30) 
+    parser.add_argument('--nworker', type=int, default=100)
+    parser.add_argument('--perround', type=int, default=100)
+    parser.add_argument('--localiter', type=int, default=1)
+    parser.add_argument('--round', type=int, default=30) 
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--checkpoint', type=int, default=1)
-    parser.add_argument('--sigma2', type=float, default=1e-6)
+    parser.add_argument('--sigma', type=float, default=1e-3)
 
     # Malicious agent setting
     parser.add_argument('--mal', default=False, action='store_true')
-    parser.add_argument('--mal_num', type=int, default=1)
     parser.add_argument('--mal_index', default=[0, 1, 2, 3])
-    parser.add_argument('--mal_boost', type=float, default=2.0)
-    parser.add_argument('--agg', default='ex_noregret')
+    parser.add_argument('--agg', default='ex_noregret', help='average, ex_noregret, filterL2, krum, trimmedmean, bulyankrum, bulyantrimmedmean')
     parser.add_argument('--attack', default='trimmedmean')
-    parser.add_argument('--plot', type=str, default='_')
-    parser.add_argument('--DBA_scale', type=float, default=100)
-    parser.add_argument('--DBA_localiter', type=int, default=1)
-    parser.add_argument('--DBA_locallr', type=float, default=1)
-    parser.add_argument('--sketch', default='no')
-    parser.add_argument('--sketch_width', type=int, default=2)
     args = parser.parse_args()
 
-    DEVICE = "cuda:" + args.device
-    device = torch.device(DEVICE if torch.cuda.is_available() else "cpu")
-    DATASET = args.dataset
-    NWORKER = args.nworker
-    PERROUND = args.perround
-    LOCALITER = args.localiter
-    EPOCH = args.epoch
-    LEARNING_RATE = args.lr
-    BATCH_SIZE = args.batchsize
-    params = {'batch_size': BATCH_SIZE, 'shuffle': True}
-    CHECK_POINT = args.checkpoint
-    SIGMA2 = args.sigma2
+    device = torch.device("cuda:" + args.device if torch.cuda.is_available() else "cpu")
+    params = {'batch_size': args.batchsize, 'shuffle': True}
 
-    if DATASET == 'MNIST':
+    if args.dataset == 'MNIST':
 
         transform=torchvision.transforms.Compose([
                                        torchvision.transforms.ToTensor(),
@@ -89,61 +71,61 @@ if __name__ == '__main__':
                                          (0.1307,), (0.3081,))])
 
         train_set = torchvision.datasets.MNIST(root='../data', train=True, download=True, transform=transform)
-        train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
+        train_loader = DataLoader(train_set, batch_size=args.batchsize)
         test_loader = DataLoader(torchvision.datasets.MNIST(root='../data', train=False, download=True, transform=transform))
 
-        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE, MAL_TRUE_LABEL_TEMPLATE, MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(MAL_FEATURE_TEMPLATE, MAL_TRUE_LABEL_TEMPLATE, MAL_TARGET_TEMPLATE, transform=transform), batch_size=args.batchsize)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
-        # from torchinfo import summary
-        # print(summary(network))
 
-    elif DATASET == 'CIFAR10':
+    elif args.dataset == 'Fashion-MNIST':
+
+        train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
+        train_loader = DataLoader(train_set, batch_size=args.batchsize)
+        test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
+        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_TEMPLATE, FASHION_MAL_TRUE_LABEL_TEMPLATE, FASHION_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=args.batchsize)
+
+        network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+        backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+
+    """
+    elif args.dataset == 'CIFAR10':
 
         transform = torchvision.transforms.Compose([
-                                         torchvision.transforms.CenterCrop(24), 
+                                         torchvision.transforms.CenterCrop(24),
                                          torchvision.transforms.ToTensor(),
                                          torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
         train_set = torchvision.datasets.CIFAR10(root='../data', train=True, download=True, transform=transform)
-        train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
+        train_loader = DataLoader(train_set, batch_size=args.batchsize)
         test_loader = DataLoader(torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform))
 
-        mal_train_loaders = DataLoader(MalDataset(CIFAR_MAL_FEATURE_TEMPLATE, CIFAR_MAL_TRUE_LABEL_TEMPLATE, CIFAR_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=BATCH_SIZE)
+        mal_train_loaders = DataLoader(MalDataset(CIFAR_MAL_FEATURE_TEMPLATE, CIFAR_MAL_TRUE_LABEL_TEMPLATE, CIFAR_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=args.batchsize)
 
         network = ConvNet().to(device)
         backdoor_network = ConvNet().to(device)
 
-    elif DATASET == 'Fashion-MNIST':
-
-        train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
-        train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-        test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
-        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_TEMPLATE, FASHION_MAL_TRUE_LABEL_TEMPLATE, FASHION_MAL_TARGET_TEMPLATE, transform=torchvision.transforms.ToTensor()), batch_size=BATCH_SIZE)
-
-        network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
-        backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
-
-    elif DATASET == 'CH-MNIST':
+    elif args.dataset == 'CH-MNIST':
 
         transform=torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
         train_set = MyDataset("../data/CHMNIST_TRAIN_FEATURE.npy", "../data/CHMNIST_TRAIN_TARGET.npy", transform=transform)
-        train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-        test_loader = DataLoader(MyDataset("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy", transform=transform), batch_size=BATCH_SIZE)        
-        mal_train_loaders = DataLoader(MalDataset(CH_MAL_FEATURE_TEMPLATE, CH_MAL_TRUE_LABEL_TEMPLATE, CH_MAL_TARGET_TEMPLATE, transform=transform), batch_size=BATCH_SIZE)
+        train_loader = DataLoader(train_set, batch_size=args.batchsize)
+        test_loader = DataLoader(MyDataset("../data/CHMNIST_TEST_FEATURE.npy", "../data/CHMNIST_TEST_TARGET.npy", transform=transform), batch_size=args.batchsize)        
+        mal_train_loaders = DataLoader(MalDataset(CH_MAL_FEATURE_TEMPLATE, CH_MAL_TRUE_LABEL_TEMPLATE, CH_MAL_TARGET_TEMPLATE, transform=transform), batch_size=args.batchsize)
 
         network = ResNet20().to(device)
         backdoor_network = ResNet20().to(device)
+    """
 
     # Split into multiple training set
-    TRAIN_SIZE = len(train_set) // NWORKER
+    local_size = len(train_set) // args.nworker
     sizes = []
     sum = 0
-    for i in range(0, NWORKER):
-        sizes.append(TRAIN_SIZE)
-        sum = sum + TRAIN_SIZE
+    for i in range(0, args.nworker):
+        sizes.append(local_size)
+        sum = sum + local_size
     sizes[0] = sizes[0] + len(train_set)  - sum
     train_sets = random_split(train_set, sizes)
     train_loaders = []
@@ -152,69 +134,69 @@ if __name__ == '__main__':
 
     # define training loss
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(network.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.SGD(network.parameters(), lr=args.lr)
     # prepare data structures to store local gradients
     local_grads = []
-    for i in range(NWORKER):
+    for i in range(args.nworker):
         local_grads.append([])
         for p in list(network.parameters()):
             local_grads[i].append(np.zeros(p.data.shape))
 
-    # store malicious round
-    mal_visible = []
+    print('Malicious node indices:', args.mal_index, 'Attack Type:', args.attack)
 
-    print('Attack or not:', args.mal, 'Malicious node indices:', args.mal_index, 'Attack Type:', args.attack)
-    for epoch in range(EPOCH):
-        mal_active = 0
-        # select workers per subset
-        print("Round: ", epoch)
-        choices = np.random.choice(NWORKER, PERROUND, replace=False)
+    file_name = '../results/' + 'noattack' + '_' + args.agg + '_' + args.dataset + '.txt'
+    txt_file = open(file_name, 'a+') 
 
-        # Question: why model poisoning needs malicious nodes in every round?
-        Mal_index = np.random.choice(choices, len(args.mal_index), replace=False)
+    for round_idx in range(args.round):
+        print("Round: ", round_idx)
+        choices = np.random.choice(args.nworker, args.perround, replace=False)
+        if args.attack == 'modelpoisoning':
+            dynamic_mal_index = np.random.choice(choices, len(args.mal_index), replace=False)
 
         # copy network parameters
         params_copy = []
         for p in list(network.parameters()):
             params_copy.append(p.clone())
+
         for c in tqdm(choices):
-            if args.mal and c in Mal_index and args.attack == 'modelpoisoning':
+
+
+            if args.attack == 'modelpoisoning' and c in dynamic_mal_index:
 
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
-                for iepoch in range(0, LOCALITER):
+                for _ in range(0, args.localiter):
                     params_temp = []
-
                     for p in list(network.parameters()):
                         params_temp.append(p.clone())
-                    
-                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, mal_visible, epoch, dist=True, mal_boost=args.mal_boost, path=args.agg)
-                
+                    delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, [], round_idx, dist=True, mal_boost=2.0, path=args.agg)
                     for idx, p in enumerate(local_grads[c]):
                         local_grads[c][idx] = p + delta_mal[idx]
-                
-                mal_active = 1
 
-            elif args.mal and c in args.mal_index and args.attack == 'backdoor':
+
+            elif c in args.mal_index and args.attack == 'backdoor':
 
                 for idx, p in enumerate(local_grads[c]):
                     local_grads[c][idx] = np.zeros(p.shape)
 
-                for iepoch in range(0, LOCALITER):
+                for _ in range(0, args.localiter):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
-                        attack_target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
+                        attack_target = torch.zeros(args.batchsize, dtype=torch.long).to(device)
                         optimizer.zero_grad()
                         output = network(attack_feature)
                         loss = criterion(output, attack_target)
                         loss.backward()
                         optimizer.step()
+
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
+
             else:
-                for iepoch in range(0, LOCALITER):
+
+                for _ in range(0, args.localiter):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         feature = feature.to(device)
                         target = target.type(torch.long).to(device)
@@ -233,49 +215,27 @@ if __name__ == '__main__':
                 for idx, p in enumerate(list(network.parameters())):
                     p.copy_(params_copy[idx])
 
-        if args.mal and mal_active and args.attack == 'modelpoisoning':
-            # TODO: remove
-            raise NotImplementedError
-
+        if args.attack == 'modelpoisoning':
             average_grad = []
+
             for p in list(network.parameters()):
                 average_grad.append(np.zeros(p.data.shape))
+
             for c in choices:
                 if c not in args.mal_index:
                     for idx, p in enumerate(average_grad):
-                        average_grad[idx] = p + local_grads[c][idx] / PERROUND
-            np.save('../checkpoints/' + args.agg + 'ben_delta_t%s.npy' % epoch, average_grad)
-            mal_visible.append(epoch)
-            mal_active = 0
+                        average_grad[idx] = p + local_grads[c][idx] / args.perround
 
-        elif args.mal and args.attack == 'trimmedmean':
+            np.save('../checkpoints/' + args.agg + 'ben_delta_t%s.npy' % round_idx, average_grad)
+
+        elif args.attack == 'trimmedmean':
             print('attack trimmedmean')
-
             local_grads = attack_trimmedmean(network, local_grads, args.mal_index, b=1.5)
 
-        elif args.mal and args.attack == 'krum':
+        elif args.attack == 'krum':
             print('attack krum')
-
             for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, args.mal_index, idx)
-
-        # compress using sketch
-        compressed_local_grads = []
-        for i in range(NWORKER):
-            compressed_local_grads.append([])
-        if args.sketch == 'count':
-            print('Start compressing.')
-            for c in choices:
-                for p in local_grads[c]:
-                    h = int(np.log(np.prod(p.shape)))
-                    # print('here:', count_sketch_encode(p.flatten(), h, args.sketch_width))
-                    compressed_local_grads[c].append(count_sketch_encode(p.flatten(), h, args.sketch_width))
-            print('Compression finished.')
-            local_grads = compressed_local_grads
-        elif args.sketch == 'no':
-            pass
-        else:
-            raise NotImplementedError
 
         # aggregation
         average_grad = []
@@ -299,7 +259,7 @@ if __name__ == '__main__':
                 filterl2_local = []
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
-                average_grad[idx] = filterL2(filterl2_local, sigma=SIGMA2)
+                average_grad[idx] = filterL2(filterl2_local, eps=len(args.mal_index) * 1./args.nworker, sigma=args.sigma)
         elif args.agg == 'trimmedmean':
             print('agg: trimmedmean')
             for idx, _ in enumerate(average_grad):
@@ -307,41 +267,36 @@ if __name__ == '__main__':
                 for c in choices:
                     trimmedmean_local.append(local_grads[c][idx])
                 average_grad[idx] = trimmed_mean(trimmedmean_local)
-        elif args.agg == 'bulyan':
-            print('agg: bulyan')
+        elif args.agg == 'bulyankrum':
+            print('agg: bulyankrum')
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
                     bulyan_local.append(local_grads[c][idx])
                 average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
+        elif args.agg == 'bulyantrimmedmean':
+            print('agg: bulyantrimmedmean')
+            for idx, _ in enumerate(average_grad):
+                bulyan_local = []
+                for c in choices:
+                    bulyan_local.append(local_grads[c][idx])
+                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
         elif args.agg == 'ex_noregret':
             print('agg: explicit non-regret')
-            # input()
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
-                if args.sketch == 'no':
-                    average_grad[idx] = ex_noregret(ex_noregret_local, sigma=SIGMA2)
-                elif args.sketch == 'count':
-                    l = np.prod(local_grads[0][idx].shape)
-                    h = int(np.log(np.prod(local_grads[0][idx].shape)))
-                    average_grad[idx] = count_sketch_topk(ex_noregret_(ex_noregret_local, sigma=SIGMA2), 10, l, h, args.sketch_width).reshape(local_grads[0][idx].shape)
-                else:
-                    raise NotImplementedError
+                average_grad[idx] = ex_noregret(ex_noregret_local, eps=len(args.mal_index) * 1./args.nworker, sigma=args.sigma)
 
         params = list(network.parameters())
         with torch.no_grad():
             for idx in range(len(params)):
                 grad = torch.from_numpy(average_grad[idx]).to(device)
                 params[idx].data.sub_(grad)
-        
-        adv_flag = args.mal
-        text_file_name = '../results/' + str(args.mal) + '_' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
-        txt_file = open(text_file_name, 'a+')
-        if (epoch+1) % CHECK_POINT == 0 or adv_flag:
-            if adv_flag:
-                print('Test after attack')
+
+
+        if (round_idx+1) % args.checkpoint == 0:
             test_loss = 0
             correct = 0
             with torch.no_grad():
@@ -353,36 +308,60 @@ if __name__ == '__main__':
                     pred = output.data.max(1, keepdim=True)[1]
                     correct += pred.eq(target.data.view_as(pred)).sum()
             test_loss /= len(test_loader.dataset)
-            txt_file.write('%d, \t%f, \t%f\n'%(epoch, test_loss, 100. * correct / len(test_loader.dataset)))
+            txt_file.write('%d, \t%f, \t%f\n'%(round_idx, test_loss, 100. * correct / len(test_loader.dataset)))
             print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
-        if args.attack == 'modelpoisoning' and args.mal == True:
+
+        if (round_idx + 1) % args.checkpoint == 0:
+
+            if args.attack == 'modelpoisoning':
             
-            test_loss = 0
-            correct = 0
-            with torch.no_grad():
-                for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
-                    feature = feature.to(device)
-                    target = target.type(torch.long).to(device)
-                    output = network(feature)
-                    test_loss += F.nll_loss(output, target, reduction='sum').item()
-                    pred = output.data.max(1, keepdim=True)[1]
-                    correct += pred.eq(target.data.view_as(pred)).sum()
-            test_loss /= len(mal_train_loaders.dataset)
-            txt_file.write('malicious acc: %f\n'%(100. * correct / len(mal_train_loaders.dataset)))
-            print('\nMalicious set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
+                test_loss = 0
+                correct = 0
+                with torch.no_grad():
+                    for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
+                        feature = feature.to(device)
+                        target = target.type(torch.long).to(device)
+                        output = network(feature)
+                        test_loss += F.nll_loss(output, target, reduction='sum').item()
+                        pred = output.data.max(1, keepdim=True)[1]
+                        correct += pred.eq(target.data.view_as(pred)).sum()
+                txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(mal_train_loaders.dataset)))
+                print('\nMalicious set: Avg. loss: {:.4f}, Attack Success Rate: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
             
-        if args.attack == 'backdoor' and args.mal == True:
-            correct = 0
-            # attack success rate
-            with torch.no_grad():
-                for feature, target in test_loader:
-                    feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
-                    target = torch.zeros(BATCH_SIZE, dtype=torch.long).to(device)
-                    output = network(feature)
-                    F.nll_loss(output, target, size_average=False).item()
-                    pred = output.data.max(1, keepdim=True)[1]
-                    correct += pred.eq(target.data.view_as(pred)).sum()
-            attack_acc = 100. * correct / len(test_loader.dataset)
-            txt_file.write('backdoor acc: %f\n'%attack_acc)
-            print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
+
+            elif args.attack == 'backdoor':
+
+                test_loss = 0
+                correct = 0
+                with torch.no_grad():
+                    for feature, target in test_loader:
+                        feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
+                        target = torch.zeros(args.batchsize, dtype=torch.long).to(device)
+                        output = network(feature)
+                        test_loss += F.nll_loss(output, target, size_average=False).item()
+                        pred = output.data.max(1, keepdim=True)[1]
+                        correct += pred.eq(target.data.view_as(pred)).sum()
+                txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
+                print('\nMalicious set: Avg. loss: {:.4f}, Attack Success Rate: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+
+                attack_acc = 100. * correct / len(test_loader.dataset)
+                txt_file.write('backdoor acc: %f\n'%attack_acc)
+                print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
+
+
+            else:
+                test_loss = 0
+                correct = 0
+                with torch.no_grad():
+                    for feature, target in test_loader:
+                        feature = feature.to(device)
+                        target = target.type(torch.long).to(device)
+                        output = network(feature)
+                        test_loss += F.cross_entropy(output, target, reduction='sum').item()
+                        pred = output.data.max(1, keepdim=True)[1]
+                        correct += pred.eq(target.data.view_as(pred)).sum()
+                test_loss /= len(test_loader.dataset)
+                txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
+                print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+
