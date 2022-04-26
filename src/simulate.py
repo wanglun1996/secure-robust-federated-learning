@@ -14,7 +14,6 @@ import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
 from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_, ex_noregret
-from sketch import count_sketch_encode, count_sketch_topk
 import random
 from backdoor import backdoor
 from torchvision import utils as vutils
