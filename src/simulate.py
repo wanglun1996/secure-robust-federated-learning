@@ -54,7 +54,6 @@ if __name__ == '__main__':
     parser.add_argument('--sigma', type=float, default=1e-3)
 
     # Malicious agent setting
-    parser.add_argument('--mal', default=False, action='store_true')
     parser.add_argument('--mal_index', default=[0, 1, 2, 3])
     parser.add_argument('--agg', default='ex_noregret', help='average, ex_noregret, filterL2, krum, trimmedmean, bulyankrum, bulyantrimmedmean')
     parser.add_argument('--attack', default='trimmedmean')

@@ -11,6 +11,7 @@ from scipy.special import rel_entr
 import cvxpy as cvx
 
 MAX_ITER = 100
+ITV = 1000
 
 def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     """
@@ -81,7 +82,7 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
         
     raise ValueError(f"Cannot suppress the max eigenvalue into given sigma2 value within {MAX_ITER} iterations.") 
 
-def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=2000):
+def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -139,7 +140,7 @@ def filterL2_(samples, sigma=1, expansion=20):
         tau_max = np.amax(tau)
         c = c * (1 - tau/tau_max)
  
-def filterL2(samples, sigma=1, expansion=20, itv=2000):
+def filterL2(samples, sigma=1, expansion=20, itv=ITV):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -255,7 +256,7 @@ def bulyan(grads, aggsubfunc='trimmedmean', f=1):
     return selected_grads_by_cod.reshape(feature_shape)
 
 if __name__ == '__main__':
-    samples = np.ones((20, 5000))
+    samples = np.ones((100, 1000))
     # contaminated_samples = [10]
     from time import time
     start = time()
