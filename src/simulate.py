@@ -38,9 +38,9 @@ if __name__ == '__main__':
     parser.add_argument('--nworker', type=int, default=100)
     parser.add_argument('--perround', type=int, default=100)
     parser.add_argument('--localiter', type=int, default=1)
-    parser.add_argument('--round', type=int, default=200) 
+    parser.add_argument('--round', type=int, default=300) 
     parser.add_argument('--lr', type=float, default=1.)
-    parser.add_argument('--checkpoint', type=int, default=1)
+    parser.add_argument('--checkpoint', type=int, default=100)
     parser.add_argument('--sigma', type=float, default=1e-3)
 
     # Malicious agent setting
@@ -61,7 +61,6 @@ if __name__ == '__main__':
 
         train_set = torchvision.datasets.MNIST(root='../data', train=True, download=True, transform=transform)
         batch_size = len(train_set) // args.nworker
-        print(batch_size)
         train_loader = DataLoader(train_set, batch_size=batch_size)
         test_loader = DataLoader(torchvision.datasets.MNIST(root='../data', train=False, download=True, transform=transform))
 
@@ -313,3 +312,6 @@ if __name__ == '__main__':
                 txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
                 print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
+        if (round_idx + 1) % 100 == 0:
+            for g in optimizer.param_groups:
+                g['lr'] /= 5
