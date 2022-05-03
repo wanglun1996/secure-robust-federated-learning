@@ -35,16 +35,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='0')
     parser.add_argument('--dataset', default='MNIST')
-    parser.add_argument('--nworker', type=int, default=100)
-    parser.add_argument('--perround', type=int, default=100)
-    parser.add_argument('--localiter', type=int, default=1)
-    parser.add_argument('--round', type=int, default=300) 
-    parser.add_argument('--lr', type=float, default=1.)
-    parser.add_argument('--checkpoint', type=int, default=100)
+    parser.add_argument('--nworker', type=int, default=20)
+    parser.add_argument('--perround', type=int, default=20)
+    parser.add_argument('--localiter', type=int, default=5)
+    parser.add_argument('--round', type=int, default=50) 
+    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--checkpoint', type=int, default=1)
     parser.add_argument('--sigma', type=float, default=1e-3)
+    parser.add_argument('--batchsize', type=int, default=10)
 
     # Malicious agent setting
-    parser.add_argument('--malnum', type=int, default=10)
+    parser.add_argument('--malnum', type=int, default=4)
     parser.add_argument('--agg', default='average', help='average, ex_noregret, filterL2, krum, trimmedmean, bulyankrum, bulyantrimmedmean')
     parser.add_argument('--attack', default='noattack', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
     args = parser.parse_args()
@@ -60,11 +61,11 @@ if __name__ == '__main__':
                                          (0.1307,), (0.3081,))])
 
         train_set = torchvision.datasets.MNIST(root='../data', train=True, download=True, transform=transform)
-        batch_size = len(train_set) // args.nworker
-        train_loader = DataLoader(train_set, batch_size=batch_size)
+        # batch_size = len(train_set) // args.nworker
+        train_loader = DataLoader(train_set, batch_size=args.batchsize)
         test_loader = DataLoader(torchvision.datasets.MNIST(root='../data', train=False, download=True, transform=transform))
 
-        mal_train_loaders = DataLoader(MalDataset(MNIST_MAL_FEATURE_FILE, MNIST_MAL_TRUE_LABEL_FILE, MNIST_MAL_TARGET_FILE, transform=transform), batch_size=batch_size)
+        mal_train_loaders = DataLoader(MalDataset(MNIST_MAL_FEATURE_FILE, MNIST_MAL_TRUE_LABEL_FILE, MNIST_MAL_TARGET_FILE, transform=transform), batch_size=args.batchsize)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
@@ -72,10 +73,10 @@ if __name__ == '__main__':
     elif args.dataset == 'Fashion-MNIST':
 
         train_set = torchvision.datasets.FashionMNIST(root = "./data", train = True, download = True, transform = torchvision.transforms.ToTensor())
-        batch_size = len(train_set) // args.nworker
-        train_loader = DataLoader(train_set, batch_size=batch_size)
+        # batch_size = len(train_set) // args.nworker
+        train_loader = DataLoader(train_set, batch_size=args.batchsize)
         test_loader = DataLoader(torchvision.datasets.FashionMNIST(root = "./data", train = False, download = True, transform = torchvision.transforms.ToTensor()))
-        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_FILE, FASHION_MAL_TRUE_LABEL_FILE, FASHION_MAL_TARGET_FILE, transform=torchvision.transforms.ToTensor()), batch_size=batch_size)
+        mal_train_loaders = DataLoader(MalDataset(FASHION_MAL_FEATURE_FILE, FASHION_MAL_TRUE_LABEL_FILE, FASHION_MAL_TARGET_FILE, transform=torchvision.transforms.ToTensor()), batch_size=args.batchsize)
 
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     train_sets = random_split(train_set, sizes)
     train_loaders = []
     for trainset in train_sets:
-        train_loaders.append(DataLoader(trainset, batch_size=batch_size, shuffle=True))
+        train_loaders.append(DataLoader(trainset, batch_size=args.batchsize, shuffle=True))
 
     # define training loss
     criterion = nn.CrossEntropyLoss()
@@ -105,7 +106,7 @@ if __name__ == '__main__':
 
     print('Malicious node indices:', mal_index, 'Attack Type:', args.attack)
 
-    file_name = '../results/' + 'noattack' + '_' + args.agg + '_' + args.dataset + '.txt'
+    file_name = '../results/' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
     txt_file = open(file_name, 'w') 
 
     for round_idx in range(args.round):
@@ -144,7 +145,7 @@ if __name__ == '__main__':
                 for _ in range(0, args.localiter):
                     for idx, (feature, target) in enumerate(train_loaders[c], 0):
                         attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
-                        attack_target = torch.zeros(batch_size, dtype=torch.long).to(device)
+                        attack_target = torch.zeros(args.batchsize, dtype=torch.long).to(device)
                         optimizer.zero_grad()
                         output = network(attack_feature)
                         loss = criterion(output, attack_target)
@@ -207,8 +208,8 @@ if __name__ == '__main__':
             for idx, p in enumerate(average_grad):
                 for c in choices:
                     average_grad[idx] = p + local_grads[c][idx] / args.perround
-            for idx in range(len(average_grad)):
-                print(np.sum(average_grad[idx]))
+            # for idx in range(len(average_grad)):
+            #     print(np.sum(average_grad[idx]))
         elif args.agg == 'krum':
             print('agg: krum')
             for idx, p in enumerate(average_grad):
@@ -284,7 +285,7 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     for feature, target in test_loader:
                         feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
-                        target = torch.zeros(batch_size, dtype=torch.long).to(device)
+                        target = torch.zeros(args.batchsize, dtype=torch.long).to(device)
                         output = network(feature)
                         test_loss += F.nll_loss(output, target, size_average=False).item()
                         pred = output.data.max(1, keepdim=True)[1]
@@ -312,6 +313,6 @@ if __name__ == '__main__':
                 txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
                 print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
-        if (round_idx + 1) % 100 == 0:
-            for g in optimizer.param_groups:
-                g['lr'] /= 5
+        # if (round_idx + 1) % 100 == 0:
+        #     for g in optimizer.param_groups:
+        #         g['lr'] /= 5
