@@ -299,7 +299,7 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     for feature, target in test_loader:
                         feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
-                        target = torch.zeros(args.batchsize, dtype=torch.long).to(device)
+                        target = torch.zeros(1, dtype=torch.long).to(device)
                         output = network(feature)
                         test_loss += F.nll_loss(output, target, size_average=False).item()
                         pred = output.data.max(1, keepdim=True)[1]
