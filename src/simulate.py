@@ -223,7 +223,14 @@ if __name__ == '__main__':
                 filterl2_local = []
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
-                average_grad[idx] = filterL2(filterl2_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
+                average_grad[idx] = filterL2(filterl2_local, sigma=args.sigma)
+        elif args.agg == 'momfilterl2':
+            print('agg: filterl2')
+            for idx, _ in enumerate(average_grad):
+                filterl2_local = []
+                for c in choices:
+                    filterl2_local.append(local_grads[c][idx])
+                average_grad[idx] = mom_filterL2(filterl2_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
         elif args.agg == 'trimmedmean':
             print('agg: trimmedmean')
             for idx, _ in enumerate(average_grad):
@@ -252,6 +259,13 @@ if __name__ == '__main__':
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
                 average_grad[idx] = ex_noregret(ex_noregret_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
+        elif args.agg == 'ex_noregret':
+            print('agg: explicit non-regret')
+            for idx, _ in enumerate(average_grad):
+                ex_noregret_local = []
+                for c in choices:
+                    ex_noregret_local.append(local_grads[c][idx])
+                average_grad[idx] = mom_ex_noregret(ex_noregret_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
 
         params = list(network.parameters())
         with torch.no_grad():

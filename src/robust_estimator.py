@@ -40,7 +40,7 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
 
     c = np.ones(size)
     while True:
-        for i in range(MAX_ITER):
+        for _ in range(MAX_ITER):
             avg = np.average(samples, axis=0, weights=c)
             cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
             eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
@@ -114,6 +114,16 @@ def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
+def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
+    bucket_size = int(np.floor(2 * eps * len(samples)))
+    bucket_num = int(np.ceil(.5 / eps))
+
+    bucketed_samples = []
+    for i in range(len(samples)):
+        bucketed_samples.append(np.sum(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
+    # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
+    return ex_noregret(samples, eps, sigma, expansion, itv)
+
 def filterL2_(samples, sigma=1, expansion=20):
     """
     samples: data samples in numpy array
@@ -127,18 +137,21 @@ def filterL2_(samples, sigma=1, expansion=20):
 
     c = np.ones(size)
     while True:
-        avg = np.average(samples, axis=0, weights=c)
-        cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
-        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
-        eig_val = eig_val[0]
-        eig_vec = eig_vec.T[0]
+        for _ in range(MAX_ITER):
+            avg = np.average(samples, axis=0, weights=c)
+            cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
+            eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+            eig_val = eig_val[0]
+            eig_vec = eig_vec.T[0]
 
-        if eig_val * eig_val <= expansion * sigma * sigma:
-            return avg
+            if eig_val * eig_val <= expansion * sigma * sigma:
+                return avg
         
-        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
-        tau_max = np.amax(tau)
-        c = c * (1 - tau/tau_max)
+            tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
+            tau_max = np.amax(tau)
+            c = c * (1 - tau/tau_max)
+
+        expansion *= 2
  
 def filterL2(samples, sigma=1, expansion=20, itv=ITV):
     """
@@ -158,7 +171,7 @@ def filterL2(samples, sigma=1, expansion=20, itv=ITV):
     sizes = []
     for i in range(cnt):
         sizes.append(itv)
-    if features_size % itv:
+    if feature_size % itv:
         sizes.append(feature_size - cnt * itv)
 
     idx = 0
@@ -168,6 +181,16 @@ def filterL2(samples, sigma=1, expansion=20, itv=ITV):
         idx += size
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
+
+def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
+    bucket_size = int(np.floor(2 * eps * len(samples)))
+    bucket_num = int(np.ceil(.5 / eps))
+
+    bucketed_samples = []
+    for i in range(len(samples)):
+        bucketed_samples.append(np.sum(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
+    # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
+    return filterL2(samples, sigma, expansion, itv)
 
 def trimmed_mean(samples, beta=0.1):
     samples = np.array(samples)
@@ -256,11 +279,12 @@ def bulyan(grads, aggsubfunc='trimmedmean', f=1):
     return selected_grads_by_cod.reshape(feature_shape)
 
 if __name__ == '__main__':
-    samples = np.ones((100, 1000))
+    samples = np.concatenate([np.ones((8, 1000)), np.ones((2, 1000)) * 10])
+    print(samples.shape, samples)
     # contaminated_samples = [10]
     from time import time
     start = time()
-    res = ex_noregret_(np.array(samples), sigma=0.1)
+    res = mom_filterL2(np.array(samples))
     end = time()
     print(end-start)
     print(res)
