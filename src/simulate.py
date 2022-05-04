@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_, ex_noregret
+from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_, ex_noregret, mom_filterL2, mom_ex_noregret
 import random
 from backdoor import backdoor
 from torchvision import utils as vutils
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     # Malicious agent setting
     parser.add_argument('--malnum', type=int, default=4)
-    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterL2, krum, trimmedmean, bulyankrum, bulyantrimmedmean')
+    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
     parser.add_argument('--attack', default='noattack', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
     args = parser.parse_args()
 
@@ -224,7 +224,7 @@ if __name__ == '__main__':
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
                 average_grad[idx] = filterL2(filterl2_local, sigma=args.sigma)
-        elif args.agg == 'momfilterl2':
+        elif args.agg == 'mom_filterl2':
             print('agg: filterl2')
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
@@ -259,7 +259,7 @@ if __name__ == '__main__':
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
                 average_grad[idx] = ex_noregret(ex_noregret_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
-        elif args.agg == 'ex_noregret':
+        elif args.agg == 'mom_ex_noregret':
             print('agg: explicit non-regret')
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
@@ -308,7 +308,7 @@ if __name__ == '__main__':
                 print('\nMalicious set: Avg. loss: {:.4f}, Attack Success Rate: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
                 attack_acc = 100. * correct / len(test_loader.dataset)
-                txt_file.write('backdoor acc: %f\n'%attack_acc)
+                # txt_file.write('backdoor acc: %f\n'%attack_acc)
                 print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
 
 
