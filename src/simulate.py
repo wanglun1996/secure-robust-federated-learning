@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torch import nn, optim, hub
 from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, filterL2, trimmed_mean, bulyan, ex_noregret_, ex_noregret, mom_filterL2, mom_ex_noregret
+from robust_estimator import krum, filterL2, median, trimmed_mean, bulyan, ex_noregret_, ex_noregret, mom_filterL2, mom_ex_noregret
 import random
 from backdoor import backdoor
 from torchvision import utils as vutils
@@ -41,12 +41,12 @@ if __name__ == '__main__':
     parser.add_argument('--round', type=int, default=50) 
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--checkpoint', type=int, default=1)
-    parser.add_argument('--sigma', type=float, default=1e-3)
+    parser.add_argument('--sigma', type=float, default=1e-6)
     parser.add_argument('--batchsize', type=int, default=10)
 
     # Malicious agent setting
     parser.add_argument('--malnum', type=int, default=4)
-    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
+    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
     parser.add_argument('--attack', default='noattack', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
     args = parser.parse_args()
 
@@ -216,7 +216,7 @@ if __name__ == '__main__':
                 krum_local = []
                 for c in choices:
                     krum_local.append(local_grads[c][idx])
-                average_grad[idx], _ = krum(krum_local, f=1)
+                average_grad[idx], _ = krum(krum_local, f=args.malnum)
         elif args.agg == 'filterl2':
             print('agg: filterl2')
             for idx, _ in enumerate(average_grad):
@@ -231,6 +231,13 @@ if __name__ == '__main__':
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
                 average_grad[idx] = mom_filterL2(filterl2_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
+        elif args.agg == 'median':
+            print('agg: median')
+            for idx, _ in enumerate(average_grad):
+                median_local = []
+                for c in choices:
+                    median_local.append(local_grads[c][idx])
+                average_grad[idx] = median(median_local)
         elif args.agg == 'trimmedmean':
             print('agg: trimmedmean')
             for idx, _ in enumerate(average_grad):
@@ -244,14 +251,21 @@ if __name__ == '__main__':
                 bulyan_local = []
                 for c in choices:
                     bulyan_local.append(local_grads[c][idx])
-                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum')
+                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum', f=args.malnum)
+        elif args.agg == 'bulyanmedian':
+            print('agg: bulyanmedian')
+            for idx, _ in enumerate(average_grad):
+                bulyan_local = []
+                for c in choices:
+                    bulyan_local.append(local_grads[c][idx])
+                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='median', f=args.malnum)
         elif args.agg == 'bulyantrimmedmean':
             print('agg: bulyantrimmedmean')
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
                     bulyan_local.append(local_grads[c][idx])
-                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean')
+                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean', f=args.malnum)
         elif args.agg == 'ex_noregret':
             print('agg: explicit non-regret')
             for idx, _ in enumerate(average_grad):

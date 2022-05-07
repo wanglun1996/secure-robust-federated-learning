@@ -192,6 +192,9 @@ def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
     # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
     return filterL2(samples, sigma, expansion, itv)
 
+def median(samples):
+    return np.median(samples, axis=0)
+
 def trimmed_mean(samples, beta=0.1):
     samples = np.array(samples)
     average_grad = np.zeros(samples[0].shape)
@@ -248,12 +251,25 @@ def bulyan(grads, aggsubfunc='trimmedmean', f=1):
     # here, we use krum as sub algorithm
     if aggsubfunc == 'krum':
         for i in range(theta):
-            krum_grad, _ = krum(samples_flatten)
-            selected_grads.append(krum_grad)
+            krum_grads, _ = krum(samples_flatten)
+            selected_grads.append(krum_grads)
             for j in range(len(samples_flatten)):
-                if samples_flatten[j] is krum_grad:
+                if samples_flatten[j] is krum_grads:
                     del samples_flatten[j]
                     break
+    elif aggsubfunc == 'median':
+        for i in range(theta):
+            median_grads = median(samples_flatten)
+            selected_grads.append(median_grads)
+            min_dis = np.inf
+            min_index = None
+            for j in range(len(samples_flatten)):
+                temp_dis = np.linalg.norm(median_grads - samples_flatten[j])
+                if temp_dis < min_dis:
+                    min_dis = temp_dis
+                    min_index = j
+            assert min_index != None
+            del samples_flatten[min_index]
     elif aggsubfunc == 'trimmedmean':
         for i in range(theta):
             trimmedmean_grads = trimmed_mean(samples_flatten)
