@@ -114,15 +114,15 @@ def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
-def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
-    bucket_size = int(np.floor(2 * eps * len(samples)))
-    bucket_num = int(np.ceil(.5 / eps))
+def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=0.01):
+    bucket_num = int(np.floor(2 * eps * len(samples))+np.log(1. / delta))
+    bucket_size = int(np.ceil(len(samples) * 1. / bucket_num))
 
     bucketed_samples = []
-    for i in range(len(samples)):
+    for i in range(bucket_num):
         bucketed_samples.append(np.sum(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
     # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
-    return ex_noregret(samples, eps, sigma, expansion, itv)
+    return ex_noregret(bucketed_samples, eps, sigma, expansion, itv)
 
 def filterL2_(samples, sigma=1, expansion=20):
     """
@@ -182,15 +182,15 @@ def filterL2(samples, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
-def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
-    bucket_size = int(np.floor(2 * eps * len(samples)))
-    bucket_num = int(np.ceil(.5 / eps))
+def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=0.01):
+    bucket_num = int(np.floor(eps * len(samples)) + np.log(1. / delta))
+    bucket_size = int(np.ceil(len(samples) * 1. / bucket_num))
 
     bucketed_samples = []
-    for i in range(len(samples)):
+    for i in range(bucket_num):
         bucketed_samples.append(np.sum(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
     # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
-    return filterL2(samples, sigma, expansion, itv)
+    return filterL2(bucketed_samples, sigma, expansion, itv)
 
 def median(samples):
     return np.median(samples, axis=0)
