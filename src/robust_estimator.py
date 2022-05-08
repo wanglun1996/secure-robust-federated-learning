@@ -114,7 +114,7 @@ def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
-def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=0.01):
+def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-6)):
     bucket_num = int(np.floor(eps * len(samples)) + np.log(1. / delta))
     bucket_size = int(np.ceil(len(samples) * 1. / bucket_num))
 
@@ -182,7 +182,7 @@ def filterL2(samples, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
-def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=0.01):
+def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-6)):
     bucket_num = int(np.floor(eps * len(samples)) + np.log(1. / delta))
     bucket_size = int(np.ceil(len(samples) * 1. / bucket_num))
 
