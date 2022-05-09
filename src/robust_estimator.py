@@ -10,7 +10,7 @@ from scipy.linalg import eigh
 from scipy.special import rel_entr
 import cvxpy as cvx
 
-MAX_ITER = 30
+MAX_ITER = 100
 ITV = 1000
 
 def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
@@ -120,7 +120,7 @@ def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.e
 
     bucketed_samples = []
     for i in range(bucket_num):
-        bucketed_samples.append(np.mean(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
+        bucketed_samples.append(np.sum(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
     # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
     return ex_noregret(bucketed_samples, eps, sigma, expansion, itv)
 
@@ -136,7 +136,7 @@ def filterL2_(samples, sigma=1, expansion=20):
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
-    for _ in range(MAX_ITER//10):
+    while True:
         for _ in range(MAX_ITER):
             avg = np.average(samples, axis=0, weights=c)
             cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
@@ -146,13 +146,12 @@ def filterL2_(samples, sigma=1, expansion=20):
 
             if eig_val * eig_val <= expansion * sigma * sigma:
                 return avg
-
+        
             tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
             tau_max = np.amax(tau)
             c = c * (1 - tau/tau_max)
 
         expansion *= 2
-    return avg
  
 def filterL2(samples, sigma=1, expansion=20, itv=ITV):
     """

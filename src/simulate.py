@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torchvision
 from torch.utils.data import Dataset, DataLoader, random_split
-from networks import MultiLayerPerceptron, ConvNet, ResNet20, weights_init
+from networks import MultiLayerPerceptron, ConvNet, ResNet20
 from data import MalDataset
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
@@ -81,8 +81,6 @@ if __name__ == '__main__':
         network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
 
-
-    network.apply(weights_init)
     # Split into multiple training set
     local_size = len(train_set) // args.nworker
     sizes = []
@@ -124,6 +122,7 @@ if __name__ == '__main__':
 
         for c in tqdm(choices):
 
+
             if args.attack == 'modelpoisoning' and c in dynamic_mal_index:
 
                 for idx, p in enumerate(local_grads[c]):
@@ -136,6 +135,7 @@ if __name__ == '__main__':
                     delta_mal = mal_single(mal_train_loaders, train_loaders[c], network, criterion, optimizer, params_temp, device, [], round_idx, dist=True, mal_boost=2.0, path=args.agg)
                     for idx, p in enumerate(local_grads[c]):
                         local_grads[c][idx] = p + delta_mal[idx]
+
 
             elif c in mal_index and args.attack == 'backdoor':
 
@@ -154,6 +154,7 @@ if __name__ == '__main__':
 
                 for idx, p in enumerate(network.parameters()):
                     local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+
 
             else:
 
@@ -205,20 +206,10 @@ if __name__ == '__main__':
         if args.agg == 'average':
             print('agg: average')
             for idx, p in enumerate(average_grad):
-                avg_local = []
                 for c in choices:
-                    avg_local.append(local_grads[c][idx])
-                avg_local = np.array(avg_local)
-                average_grad[idx] = np.average(avg_local, axis=0)
-            # for idx in range(len(local_grads[0])):
-            #     print(np.max(np.abs(local_grads[0][idx])))
-
-            # for idx, p in enumerate(average_grad):
-            #     for c in choices:
-            #         average_grad[idx] = p + local_grads[c][idx]
-            #     average_grad[idx] /=  args.perround
-            # for idx in range(len(local_grads[0])):
-            #     print(np.max(np.abs(local_grads[0][idx])))
+                    average_grad[idx] = p + local_grads[c][idx] / args.perround
+            # for idx in range(len(average_grad)):
+            #     print(np.sum(average_grad[idx]))
         elif args.agg == 'krum':
             print('agg: krum')
             for idx, p in enumerate(average_grad):
@@ -226,8 +217,6 @@ if __name__ == '__main__':
                 for c in choices:
                     krum_local.append(local_grads[c][idx])
                 average_grad[idx], _ = krum(krum_local, f=args.malnum)
-            for idx in range(len(local_grads[0])):
-                print(np.max(np.abs(local_grads[0][idx])))
         elif args.agg == 'filterl2':
             print('agg: filterl2')
             for idx, _ in enumerate(average_grad):

@@ -110,18 +110,6 @@ class ResNet(nn.Module):
 def ResNet20():
     return ResNet(BasicBlock, [2, 2, 2, 2])
 
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv2d') != -1:
-        m.weight.data.normal_(0.0, 1e-2)
-    elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(0.0, 1e-2)
-        m.bias.data.fill_(1e-2)
-    elif classname.find('Linear') != -1:
-        m.weight.data.normal_(0.0, 1e-2)
-        m.bias.data.fill_(1e-2)
-
-
 if __name__ == '__main__':
     net = ResNet20()
     print(net)
