@@ -206,10 +206,11 @@ if __name__ == '__main__':
         if args.agg == 'average':
             print('agg: average')
             for idx, p in enumerate(average_grad):
+                avg_local = []
                 for c in choices:
-                    average_grad[idx] = p + local_grads[c][idx] / args.perround
-            # for idx in range(len(average_grad)):
-            #     print(np.sum(average_grad[idx]))
+                    avg_local.append(local_grads[c][idx])
+                avg_local = np.array(avg_local)
+                average_grad[idx] = np.average(avg_local, axis=0)
         elif args.agg == 'krum':
             print('agg: krum')
             for idx, p in enumerate(average_grad):
