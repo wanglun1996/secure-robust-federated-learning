@@ -82,7 +82,7 @@ if __name__ == '__main__':
         backdoor_network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
 
 
-    network.apply(weights_init)
+    # network.apply(weights_init)
     # Split into multiple training set
     local_size = len(train_set) // args.nworker
     sizes = []
