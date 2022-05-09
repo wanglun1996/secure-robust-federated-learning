@@ -11,7 +11,7 @@ from scipy.special import rel_entr
 import cvxpy as cvx
 
 MAX_ITER = 10
-ITV = 500
+ITV = 1000
 
 def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     """
@@ -152,7 +152,7 @@ def filterL2_(samples, sigma=1, expansion=20):
             c = c * (1 - tau/tau_max)
 
         expansion *= 2
-
+ 
 def filterL2(samples, sigma=1, expansion=20, itv=ITV):
     """
     samples: data samples in numpy array
