@@ -19,6 +19,10 @@ from backdoor import backdoor
 from torchvision import utils as vutils
 from tqdm import tqdm
 
+random.seed(2022)
+np.random.seed(5)
+torch.manual_seed(11)
+
 FEATURE_TEMPLATE = '../data/infimnist_%s_feature_%d_%d.npy'
 TARGET_TEMPLATE = '../data/infimnist_%s_target_%d_%d.npy'
 
@@ -35,13 +39,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='0')
     parser.add_argument('--dataset', default='MNIST')
-    parser.add_argument('--nworker', type=int, default=20)
-    parser.add_argument('--perround', type=int, default=20)
+    parser.add_argument('--nworker', type=int, default=100)
+    parser.add_argument('--perround', type=int, default=100)
     parser.add_argument('--localiter', type=int, default=5)
     parser.add_argument('--round', type=int, default=50) 
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--checkpoint', type=int, default=1)
-    parser.add_argument('--sigma', type=float, default=1e-6)
+    parser.add_argument('--sigma', type=float, default=1e-5)
     parser.add_argument('--batchsize', type=int, default=10)
 
     # Malicious agent setting
@@ -220,18 +224,21 @@ if __name__ == '__main__':
                 average_grad[idx], _ = krum(krum_local, f=args.malnum)
         elif args.agg == 'filterl2':
             print('agg: filterl2')
+            import time
+            start = time.time()
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
-                average_grad[idx] = filterL2(filterl2_local, sigma=args.sigma)
+                average_grad[idx] = filterL2(filterl2_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
+            print("########", time.time()-start)
         elif args.agg == 'mom_filterl2':
             print('agg: filterl2')
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
-                average_grad[idx] = mom_filterL2(filterl2_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
+                average_grad[idx] = mom_filterL2(filterl2_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
         elif args.agg == 'median':
             print('agg: median')
             for idx, _ in enumerate(average_grad):
@@ -273,14 +280,14 @@ if __name__ == '__main__':
                 ex_noregret_local = []
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
-                average_grad[idx] = ex_noregret(ex_noregret_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
+                average_grad[idx] = ex_noregret(ex_noregret_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
         elif args.agg == 'mom_ex_noregret':
             print('agg: explicit non-regret')
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
-                average_grad[idx] = mom_ex_noregret(ex_noregret_local, eps=args.malnum * 1./args.nworker, sigma=args.sigma)
+                average_grad[idx] = mom_ex_noregret(ex_noregret_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
 
         params = list(network.parameters())
         with torch.no_grad():
@@ -291,57 +298,56 @@ if __name__ == '__main__':
 
         if (round_idx + 1) % args.checkpoint == 0:
 
+            test_loss = 0
+            correct = 0
+            with torch.no_grad():
+                for feature, target in test_loader:
+                    feature = feature.to(device)
+                    target = target.type(torch.long).to(device)
+                    output = network(feature)
+                    test_loss += F.cross_entropy(output, target, reduction='sum').item()
+                    pred = output.data.max(1, keepdim=True)[1]
+                    correct += pred.eq(target.data.view_as(pred)).sum()
+            test_loss /= len(test_loader.dataset)
+            accuracy = 100. * correct / len(test_loader.dataset)
+            # txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
+            # print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+
             if args.attack == 'modelpoisoning':
-            
-                test_loss = 0
+
+                mal_test_loss = 0
                 correct = 0
                 with torch.no_grad():
                     for idx, (feature, mal_data, true_label, target) in enumerate(mal_train_loaders, 0):
                         feature = feature.to(device)
                         target = target.type(torch.long).to(device)
                         output = network(feature)
-                        test_loss += F.nll_loss(output, target, reduction='sum').item()
+                        mal_test_loss += F.nll_loss(output, target, reduction='sum').item()
                         pred = output.data.max(1, keepdim=True)[1]
                         correct += pred.eq(target.data.view_as(pred)).sum()
-                txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(mal_train_loaders.dataset)))
-                print('\nMalicious set: Avg. loss: {:.4f}, Attack Success Rate: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
+                mal_test_loss /= len(mal_train_loaders.dataset)
+                txt_file.write('%d, \t%f, \t%f, \t%f, \t%f\n'%(round_idx+1, test_loss, accuracy, mal_test_loss, 100. * correct / len(mal_train_loaders.dataset)))
+                print('\nMalicious set: Accuracy: {:.4f}, Attack Success Rate: {}/{} ({:.0f}%)\n'.format(accuracy, correct, len(mal_train_loaders.dataset), 100. * correct / len(mal_train_loaders.dataset)))
             
 
             elif args.attack == 'backdoor':
 
-                test_loss = 0
+                mal_test_loss = 0
                 correct = 0
                 with torch.no_grad():
                     for feature, target in test_loader:
                         feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device))
                         target = torch.zeros(1, dtype=torch.long).to(device)
                         output = network(feature)
-                        test_loss += F.nll_loss(output, target, size_average=False).item()
-                        pred = output.data.max(1, keepdim=True)[1]
-                        correct += pred.eq(target.data.view_as(pred)).sum()
-                txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
-                print('\nMalicious set: Avg. loss: {:.4f}, Attack Success Rate: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
-
-                attack_acc = 100. * correct / len(test_loader.dataset)
-                # txt_file.write('backdoor acc: %f\n'%attack_acc)
-                print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
-
-
-            else:
-                test_loss = 0
-                correct = 0
-                with torch.no_grad():
-                    for feature, target in test_loader:
-                        feature = feature.to(device)
-                        target = target.type(torch.long).to(device)
-                        output = network(feature)
-                        test_loss += F.cross_entropy(output, target, reduction='sum').item()
+                        mal_test_loss += F.nll_loss(output, target, size_average=False).item()
                         pred = output.data.max(1, keepdim=True)[1]
                         correct += pred.eq(target.data.view_as(pred)).sum()
                 test_loss /= len(test_loader.dataset)
-                txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
-                print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+                txt_file.write('%d, \t%f, \t%f, \t%f, \t%f\n'%(round_idx+1, test_loss, accuracy, mal_test_loss, 100. * correct / len(test_loader.dataset)))
+                print('\nMalicious set: Accuracy: {:.4f}, Attack Success Rate: {}/{} ({:.0f}%)\n'.format(accuracy, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
-        # if (round_idx + 1) % 100 == 0:
-        #     for g in optimizer.param_groups:
-        #         g['lr'] /= 5
+
+            else:
+
+                txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, accuracy))
+                print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), accuracy))

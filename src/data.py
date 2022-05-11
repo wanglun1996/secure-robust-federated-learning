@@ -8,6 +8,7 @@ import sys
 # import _infimnist as infimnist
 import numpy as np
 import argparse
+import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 import torchvision
 from sklearn.preprocessing import LabelEncoder
@@ -105,6 +106,7 @@ class MalDataset(Dataset):
         return self.target.shape[0]
 
 def gen_mal_mnist(batch_size=10):
+    torch.manual_seed(hash('mnist'))
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor()])
     test_set = torchvision.datasets.MNIST(root='../data', train=False, download=True, transform=transform)
@@ -139,6 +141,7 @@ def gen_mal_cifar(batch_size=10):
         np.save(CIFAR_MAL_TARGET_TEMPLATE, mal_train_labels)
 
 def gen_mal_fashion(batch_size=10):
+    torch.manual_seed(hash('fashion'))
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor()])
     test_set = torchvision.datasets.FashionMNIST(root='../data', train=False, download=True, transform=transform)

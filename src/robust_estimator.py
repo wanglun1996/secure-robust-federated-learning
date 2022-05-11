@@ -11,7 +11,7 @@ from scipy.special import rel_entr
 import cvxpy as cvx
 
 MAX_ITER = 100
-ITV = 1000
+ITV = 100
 
 def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     """
@@ -124,7 +124,7 @@ def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.e
     # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
     return ex_noregret(bucketed_samples, eps, sigma, expansion, itv)
 
-def filterL2_(samples, sigma=1, expansion=20):
+def filterL2_(samples, eps=0.2, sigma=1, expansion=20):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -132,28 +132,37 @@ def filterL2_(samples, sigma=1, expansion=20):
     size = samples.shape[0]
     feature_size = samples.shape[1]
 
-
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
-    while True:
-        for _ in range(MAX_ITER):
-            avg = np.average(samples, axis=0, weights=c)
-            cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
-            eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
-            eig_val = eig_val[0]
-            eig_vec = eig_vec.T[0]
+    for i in range(2 * int(eps * size)):
+        print(i)
+        avg = np.average(samples, axis=0, weights=c)
+        cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
+        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+        eig_val = eig_val[0]
+        eig_vec = eig_vec.T[0]
 
-            if eig_val * eig_val <= expansion * sigma * sigma:
-                return avg
+        if eig_val * eig_val <= expansion * sigma * sigma:
+            return avg
         
-            tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
-            tau_max = np.amax(tau)
-            c = c * (1 - tau/tau_max)
+        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
+        tau_max_idx = np.argmax(tau)
+        tau_max = tau[tau_max_idx]
+        c = c * (1 - tau/tau_max)
 
-        expansion *= 2
+        # print("((((", samples, c)
+        samples = np.concatenate((samples[:tau_max_idx], samples[tau_max_idx+1:]))
+        samples_ = samples.reshape(-1, 1, feature_size)
+        c = np.concatenate((c[:tau_max_idx], c[tau_max_idx+1:]))
+        c = c / np.linalg.norm(c, ord=1)
+        # print("))))", samples, c, samples.shape, c.shape)
+
+    avg = np.average(samples, axis=0, weights=c)
+    return avg
+
  
-def filterL2(samples, sigma=1, expansion=20, itv=ITV):
+def filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
     """
     samples: data samples in numpy array
     sigma: operator norm of covariance matrix assumption
@@ -177,7 +186,7 @@ def filterL2(samples, sigma=1, expansion=20, itv=ITV):
     idx = 0
     res = []
     for size in sizes:
-        res.append(filterL2_(samples_flatten[:,idx:idx+size], sigma, expansion))
+        res.append(filterL2_(samples_flatten[:,idx:idx+size], eps, sigma, expansion))
         idx += size
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
@@ -300,7 +309,7 @@ if __name__ == '__main__':
     # contaminated_samples = [10]
     from time import time
     start = time()
-    res = mom_filterL2(np.array(samples))
+    res = filterL2(np.array(samples), eps=0.1)
     end = time()
     print(end-start)
     print(res)
