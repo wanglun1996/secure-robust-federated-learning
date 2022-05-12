@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--batchsize', type=int, default=10)
 
     # Malicious agent setting
-    parser.add_argument('--malnum', type=int, default=4)
+    parser.add_argument('--malnum', type=int, default=20)
     parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
     parser.add_argument('--attack', default='noattack', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
     args = parser.parse_args()
@@ -259,21 +259,21 @@ if __name__ == '__main__':
                 bulyan_local = []
                 for c in choices:
                     bulyan_local.append(local_grads[c][idx])
-                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='krum', f=args.malnum)
+                average_grad[idx] = bulyan(bulyan_local, args.malnum, aggsubfunc='krum')
         elif args.agg == 'bulyanmedian':
             print('agg: bulyanmedian')
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
                     bulyan_local.append(local_grads[c][idx])
-                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='median', f=args.malnum)
+                average_grad[idx] = bulyan(bulyan_local, args.malnum, aggsubfunc='median')
         elif args.agg == 'bulyantrimmedmean':
             print('agg: bulyantrimmedmean')
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
                     bulyan_local.append(local_grads[c][idx])
-                average_grad[idx] = bulyan(bulyan_local, aggsubfunc='trimmedmean', f=args.malnum)
+                average_grad[idx] = bulyan(bulyan_local, args.malnum, aggsubfunc='trimmedmean')
         elif args.agg == 'ex_noregret':
             print('agg: explicit non-regret')
             for idx, _ in enumerate(average_grad):

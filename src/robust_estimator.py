@@ -11,7 +11,7 @@ from scipy.special import rel_entr
 import cvxpy as cvx
 
 MAX_ITER = 100
-ITV = 100
+ITV = 1000
 
 def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     """
@@ -19,68 +19,79 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     sigma: operator norm of covariance matrix assumption
     """
     size = len(samples)
-    threshold = 2 * eps * size
-    filtered_samples = []
-    while len(filtered_samples) == 0:
-        for i, sample_i in enumerate(samples):
-            far_num = 0
-            for j, sample_j in enumerate(samples):
-                if i != j:
-                    dis_square = sum((sample_i - sample_j)**2)
-                    if dis_square > dis_threshold**2:
-                        far_num += 1
-            if far_num < threshold:
-                filtered_samples.append(sample_i)
-        dis_threshold *= 2
+    f = int(np.ceil(eps*size))
+    metric = krum_(samples, f)
+    indices = np.argpartition(metric, -f-1)[-f:]
+    samples = samples[indices]
+    size = samples.shape[0]
+    dis_list = []
+    for i in range(size):
+        for j in range(i+1, size):
+            dis_list.append(np.linalg.norm(samples[i]-samples[j]))
+    step_size = 0.5 / (np.amax(dis_list) ** 2)
+    print("step size: ", step_size)
+
+
+    # threshold = 2 * eps * size
+    # filtered_samples = []
+    # while len(filtered_samples) == 0:
+    #     for i, sample_i in enumerate(samples):
+    #         far_num = 0
+    #         for j, sample_j in enumerate(samples):
+    #             if i != j:
+    #                 dis_square = sum((sample_i - sample_j)**2)
+    #                 if dis_square > dis_threshold**2:
+    #                     far_num += 1
+    #         if far_num < threshold:
+    #             filtered_samples.append(sample_i)
+    #     dis_threshold *= 2
    
-    samples = np.array(filtered_samples)
+    # samples = np.array(filtered_samples)
     size = samples.shape[0]
     feature_size = samples.shape[1]
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
-    while True:
-        for _ in range(MAX_ITER):
-            avg = np.average(samples, axis=0, weights=c)
-            cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
-            eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
-            eig_val = eig_val[0]
-            eig_vec = eig_vec.T[0]
+    for _ in range(int(20 * eps * size)):
+        avg = np.average(samples, axis=0, weights=c)
+        cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
+        eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
+        eig_val = eig_val[0]
+        eig_vec = eig_vec.T[0]
 
-            if eig_val * eig_val <= expansion * sigma * sigma:
-                return avg
+        if eig_val * eig_val <= expansion * sigma * sigma:
+            return avg
 
-            tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
-            tau_max = np.amax(tau)
-            c = c * (1 - tau/tau_max)
+        tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
+        tau_max = np.amax(tau)
+        c = c * (1 - step_size * tau)
 
-            # The projection step
-            ordered_c_index = np.flip(np.argsort(c))
-            min_KL = None
-            projected_c = None
-            for i in range(len(c)):
-                c_ = np.copy(c)
-                for j in range(i+1):   
-                    c_[ordered_c_index[j]] = 1./(1-eps)/len(c)
-                clip_norm = 1 - np.sum(c_[ordered_c_index[:i+1]])
-                norm = np.sum(c_[ordered_c_index[i+1:]])
-                if clip_norm <= 0:
-                    break
-                scale = clip_norm / norm
-                for j in range(i+1, len(c)):
-                    c_[ordered_c_index[j]] = c_[ordered_c_index[j]] * scale
-                if c_[ordered_c_index[i+1]] > 1./(1-eps)/len(c):
-                    continue
-                KL = np.sum(rel_entr(c, c_))
-                if min_KL is None or KL < min_KL:
-                    min_KL = KL
-                    projected_c = c_
+        # The projection step
+        ordered_c_index = np.flip(np.argsort(c))
+        min_KL = None
+        projected_c = None
+        for i in range(len(c)):
+            c_ = np.copy(c)
+            for j in range(i+1):   
+                c_[ordered_c_index[j]] = 1./(1-eps)/len(c)
+            clip_norm = 1 - np.sum(c_[ordered_c_index[:i+1]])
+            norm = np.sum(c_[ordered_c_index[i+1:]])
+            if clip_norm <= 0:
+                break
+            scale = clip_norm / norm
+            for j in range(i+1, len(c)):
+                c_[ordered_c_index[j]] = c_[ordered_c_index[j]] * scale
+            if c_[ordered_c_index[i+1]] > 1./(1-eps)/len(c):
+                continue
+            KL = np.sum(rel_entr(c, c_))
+            if min_KL is None or KL < min_KL:
+                min_KL = KL
+                projected_c = c_
 
-            c = projected_c
-
-        expansion *= 2
+        c = projected_c
         
-    raise ValueError(f"Cannot suppress the max eigenvalue into given sigma2 value within {MAX_ITER} iterations.") 
+    avg = np.average(samples, axis=0, weights=c)
+    return avg
 
 def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
     """
@@ -215,7 +226,7 @@ def trimmed_mean(samples, beta=0.1):
 
     return average_grad
 
-def krum(samples, f=0):
+def krum_(samples, f):
     size = len(samples)
     size_ = size - f - 2
     metric = []
@@ -225,6 +236,10 @@ def krum(samples, f=0):
         del samples_[idx]
         dis = np.array([np.linalg.norm(sample-sample_) for sample_ in samples_])
         metric.append(np.sum(dis[np.argsort(dis)[:size_]]))
+    return metric
+
+def krum(samples, f):
+    metric = krum_(samples, f)
     index = np.argmin(metric)
     return samples[index], index
 
@@ -246,7 +261,7 @@ def bulyan_one_coordinate(arr, beta):
     median_beta_neighbors = arr[np.argsort(distances)[:beta]]
     return np.mean(median_beta_neighbors)
 
-def bulyan(grads, aggsubfunc='trimmedmean', f=1):
+def bulyan(grads, f, aggsubfunc='trimmedmean'):
     samples = np.array(grads)
     feature_shape = grads[0].shape
     samples_flatten = []
