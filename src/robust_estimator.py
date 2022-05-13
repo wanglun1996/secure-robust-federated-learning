@@ -205,7 +205,7 @@ def filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
-def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-6)):
+def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-5)):
     bucket_num = int(np.floor(eps * len(samples)) + np.log(1. / delta))
     bucket_size = int(np.ceil(len(samples) * 1. / bucket_num))
 
