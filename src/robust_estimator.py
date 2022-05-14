@@ -20,16 +20,17 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     """
     size = len(samples)
     f = int(np.ceil(eps*size))
-    metric = krum_(samples, f)
-    indices = np.argpartition(metric, -f-1)[-f:]
+    metric = krum_(list(samples), f)
+    indices = np.argpartition(metric, -f)[:-f]
     samples = samples[indices]
     size = samples.shape[0]
+    
     dis_list = []
     for i in range(size):
         for j in range(i+1, size):
             dis_list.append(np.linalg.norm(samples[i]-samples[j]))
     step_size = 0.5 / (np.amax(dis_list) ** 2)
-    print("step size: ", step_size)
+    # print("step size: ", step_size, np.sum(dis_list, axis=0))
 
 
     # threshold = 2 * eps * size
@@ -52,7 +53,8 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
-    for _ in range(int(20 * eps * size)):
+    for i in range(int(2 * eps * size)):
+        print(i)
         avg = np.average(samples, axis=0, weights=c)
         cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
         eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
@@ -63,7 +65,8 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
             return avg
 
         tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
-        tau_max = np.amax(tau)
+        # tau_max = np.amax(tau)
+        # print("tau_max:", tau_max)
         c = c * (1 - step_size * tau)
 
         # The projection step
