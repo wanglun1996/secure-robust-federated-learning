@@ -128,7 +128,7 @@ def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
-def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-6)):
+def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-5)):
     bucket_num = int(np.floor(eps * len(samples)) + np.log(1. / delta))
     bucket_size = int(np.ceil(len(samples) * 1. / bucket_num))
 
@@ -205,7 +205,7 @@ def filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
 
     return np.concatenate(res, axis=0).reshape(feature_shape)
 
-def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-6)):
+def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(-5)):
     bucket_num = int(np.floor(eps * len(samples)) + np.log(1. / delta))
     bucket_size = int(np.ceil(len(samples) * 1. / bucket_num))
 
@@ -213,7 +213,7 @@ def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(
     for i in range(bucket_num):
         bucketed_samples.append(np.mean(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
     # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
-    return filterL2(bucketed_samples, sigma, expansion, itv)
+    return filterL2(bucketed_samples, eps, sigma, expansion, itv)
 
 def median(samples):
     return np.median(samples, axis=0)
