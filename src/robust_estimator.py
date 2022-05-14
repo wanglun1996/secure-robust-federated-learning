@@ -278,7 +278,7 @@ def bulyan(grads, f, aggsubfunc='trimmedmean'):
     # here, we use krum as sub algorithm
     if aggsubfunc == 'krum':
         for i in range(theta):
-            krum_grads, _ = krum(samples_flatten)
+            krum_grads, _ = krum(samples_flatten, f)
             selected_grads.append(krum_grads)
             for j in range(len(samples_flatten)):
                 if samples_flatten[j] is krum_grads:
