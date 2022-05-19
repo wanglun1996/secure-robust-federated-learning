@@ -4,14 +4,14 @@ COUNTER=0
 
 for DATASET in "MNIST" "Fashion-MNIST"
 do
-	for ATTACK in "modelpoisoning" "backdoor" "noattack" "trimmedmean" "krum"
+	for ATTACK in "backdoor" "krum" "modelpoisoning" "noattack" "trimmedmean"
 	do
-		for AGG in "krum" "median" "bulyankrum" "bulyanmedian" "bulyantrimmedmean" # "mom_filterl2" "mom_ex_noregret" "filterl2" "ex_noregret" # "filterL2" "bulyankrum" "bulyantrimmedmean" "average" "krum" "trimmedmean" "ex_noregret"
+		for AGG in "average" "bulyankrum" "bulyanmedian" "bulyantrimmedmean" "ex_noregret" "filterl2" "krum" "median" "mom_ex_noregret" "mom_filterl2" "trimmedmean"
 		do
-			DEVICE=$((COUNTER%4+4))
+			DEVICE=$((COUNTER%8))
 			COMMAND="conda init; python simulate.py --dataset ${DATASET} --device ${DEVICE} --attack ${ATTACK} --agg ${AGG} > log/${ATTACK}_${AGG}_${DATASET}.log;"
 			echo $COMMAND
-			screen -dm bash -c "conda init; python simulate.py --dataset ${DATASET} --device ${DEVICE} --attack ${ATTACK} --agg ${AGG} > log/${ATTACK}_${AGG}_${DATASET}.log;"
+			screen -dmS ${ATTACK}_${AGG}_${DATASET} bash -c "conda init; python simulate.py --dataset ${DATASET} --device ${DEVICE} --attack ${ATTACK} --agg ${AGG} > log/${ATTACK}_${AGG}_${DATASET}.log;"
 			COUNTER=$((COUNTER+1))
 		done
 	done

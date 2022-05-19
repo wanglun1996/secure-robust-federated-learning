@@ -224,14 +224,11 @@ if __name__ == '__main__':
                 average_grad[idx], _ = krum(krum_local, f=args.malnum)
         elif args.agg == 'filterl2':
             print('agg: filterl2')
-            import time
-            start = time.time()
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
                 average_grad[idx] = filterL2(filterl2_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
-            print("########", time.time()-start)
         elif args.agg == 'mom_filterl2':
             print('agg: filterl2')
             for idx, _ in enumerate(average_grad):
@@ -310,8 +307,6 @@ if __name__ == '__main__':
                     correct += pred.eq(target.data.view_as(pred)).sum()
             test_loss /= len(test_loader.dataset)
             accuracy = 100. * correct / len(test_loader.dataset)
-            # txt_file.write('%d, \t%f, \t%f\n'%(round_idx+1, test_loss, 100. * correct / len(test_loader.dataset)))
-            # print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
             if args.attack == 'modelpoisoning':
 

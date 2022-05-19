@@ -205,7 +205,6 @@ def attack_krum(network, local_grads, mal_index, param_index, lower_bound=1e-8, 
         if temp_max_dis > max_dis:
             max_dis = temp_max_dis
     
-    # upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
     upper_bound = 1.0
     lambda1 = upper_bound
 
@@ -253,9 +252,7 @@ def bulyan_attack_krum(network, local_grads, mal_index, param_index, lower_bound
             if c == target_layer and idx == target_idx:
                 attack_vec[idx] += 1
  
-    # upper_bound = 1.0 / (m - 2*c - 1) / np.sqrt(d) * min_dis + 1.0 / np.sqrt(d) * max_dis
     upper_bound = 1.0
-    # print(upper_bound, d)
     lambda1 = upper_bound
 
     if upper_bound < lower_bound:
@@ -278,9 +275,5 @@ def bulyan_attack_krum(network, local_grads, mal_index, param_index, lower_bound
     
     for kk in mal_index:
         local_grads[kk][param_index] = -lambda1 * attack_vec[param_index]
-    # print(average_sign[param_index])
     
     return local_grads
-
-# def model_replacement_attack(original_model, target_model, learning_rate, per_round):
-#     return per_round / learning_rate * (target_model - original_model

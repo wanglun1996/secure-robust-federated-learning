@@ -30,31 +30,12 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
         for j in range(i+1, size):
             dis_list.append(np.linalg.norm(samples[i]-samples[j]))
     step_size = 0.5 / (np.amax(dis_list) ** 2)
-    # print("step size: ", step_size, np.sum(dis_list, axis=0))
-
-
-    # threshold = 2 * eps * size
-    # filtered_samples = []
-    # while len(filtered_samples) == 0:
-    #     for i, sample_i in enumerate(samples):
-    #         far_num = 0
-    #         for j, sample_j in enumerate(samples):
-    #             if i != j:
-    #                 dis_square = sum((sample_i - sample_j)**2)
-    #                 if dis_square > dis_threshold**2:
-    #                     far_num += 1
-    #         if far_num < threshold:
-    #             filtered_samples.append(sample_i)
-    #     dis_threshold *= 2
-   
-    # samples = np.array(filtered_samples)
     size = samples.shape[0]
     feature_size = samples.shape[1]
     samples_ = samples.reshape(size, 1, feature_size)
 
     c = np.ones(size)
     for i in range(int(2 * eps * size)):
-        print(i)
         avg = np.average(samples, axis=0, weights=c)
         cov = np.average(np.array([np.matmul((sample - avg).T, (sample - avg)) for sample in samples_]), axis=0, weights=c)
         eig_val, eig_vec = eigh(cov, eigvals=(feature_size-1, feature_size-1), eigvals_only=False)
@@ -65,8 +46,6 @@ def ex_noregret_(samples, eps=1./12, sigma=1, expansion=20, dis_threshold=0.7):
             return avg
 
         tau = np.array([np.inner(sample-avg, eig_vec)**2 for sample in samples])
-        # tau_max = np.amax(tau)
-        # print("tau_max:", tau_max)
         c = c * (1 - step_size * tau)
 
         # The projection step
@@ -121,7 +100,6 @@ def ex_noregret(samples, eps=1./12, sigma=1, expansion=20, itv=ITV):
     res = []
     cnt = 0
     for size in sizes:
-        # print(cnt, len(sizes))
         cnt += 1
         res.append(ex_noregret_(samples_flatten[:,idx:idx+size], eps, sigma, expansion))
         idx += size
@@ -135,7 +113,6 @@ def mom_ex_noregret(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.e
     bucketed_samples = []
     for i in range(bucket_num):
         bucketed_samples.append(np.mean(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
-    # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
     return ex_noregret(bucketed_samples, eps, sigma, expansion, itv)
 
 def filterL2_(samples, eps=0.2, sigma=1, expansion=20):
@@ -165,12 +142,10 @@ def filterL2_(samples, eps=0.2, sigma=1, expansion=20):
         tau_max = tau[tau_max_idx]
         c = c * (1 - tau/tau_max)
 
-        # print("((((", samples, c)
         samples = np.concatenate((samples[:tau_max_idx], samples[tau_max_idx+1:]))
         samples_ = samples.reshape(-1, 1, feature_size)
         c = np.concatenate((c[:tau_max_idx], c[tau_max_idx+1:]))
         c = c / np.linalg.norm(c, ord=1)
-        # print("))))", samples, c, samples.shape, c.shape)
 
     avg = np.average(samples, axis=0, weights=c)
     return avg
@@ -212,7 +187,7 @@ def mom_filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV, delta=np.exp(
     bucketed_samples = []
     for i in range(bucket_num):
         bucketed_samples.append(np.mean(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
-    # print(len(bucketed_samples), len(samples), bucketed_samples[0].shape, samples[0].shape)
+
     return filterL2(bucketed_samples, eps, sigma, expansion, itv)
 
 def median(samples):
@@ -320,14 +295,3 @@ def bulyan(grads, f, aggsubfunc='trimmedmean'):
         selected_grads_by_cod[i, 0] = bulyan_one_coordinate(np_grads[:, i], beta)
 
     return selected_grads_by_cod.reshape(feature_shape)
-
-if __name__ == '__main__':
-    samples = np.concatenate([np.ones((8, 1000)), np.ones((2, 1000)) * 10])
-    print(samples.shape, samples)
-    # contaminated_samples = [10]
-    from time import time
-    start = time()
-    res = filterL2(np.array(samples), eps=0.1)
-    end = time()
-    print(end-start)
-    print(res)
