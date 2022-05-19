@@ -8,4 +8,3 @@ torchvision==0.6.1
 sklearn
 opencv-python==4.2.0.34
 cvxpy==1.1.5
-Cython==0.29.21
