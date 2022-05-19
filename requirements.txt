@@ -1,4 +1,4 @@
-numpy==1.18.5
+numpy==1.21.6
 mpmath==1.1.0
 scipy==1.4.1
 matplotlib==3.2.2
@@ -8,3 +8,4 @@ torchvision==0.6.1
 sklearn
 opencv-python==4.2.0.34
 cvxpy==1.1.5
+tqdm==4.64.0

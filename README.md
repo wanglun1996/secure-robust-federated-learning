@@ -6,8 +6,9 @@
 
 # F2ED-LEARNING: Attacks and Byzantine-Robust Aggregators in Federated Learning
 This repository contains the evaluation code for the following manuscripts.
-[1] Byzantine-Robust Federated Learning with Optimal Statistical Rates and Privacy Guarantees. Banghua Zhu*, Lun Wang*, Qi Pang*, Shuai Wang, Jiantao Jiao, Dawn Song, Michael Jordan.
-[2] Towards Bidirectional Protection in Federated Learning. Lun Wang*, Qi Pang*, Shuai Wang, Dawn Song. SpicyFL Workshop @ NeurIPS 2020.
+
+- Byzantine-Robust Federated Learning with Optimal Statistical Rates and Privacy Guarantees. Banghua Zhu*, Lun Wang*, Qi Pang*, Shuai Wang, Jiantao Jiao, Dawn Song, Michael Jordan.
+- Towards Bidirectional Protection in Federated Learning. Lun Wang*, Qi Pang*, Shuai Wang, Dawn Song. SpicyFL Workshop @ NeurIPS 2020.
 
 ### Attacks 
 We implemented the following attacks in federated learning.
@@ -33,26 +34,32 @@ We implemented the following Byzantine-robust aggregators in federated learning.
 
 ### Dependency
 
-We test all the implementation with python3.7.11. Run the following command to install all the required python packages.
+- conda 4.12.0
+- Python 3.7.11
+- Screen version 4.06.02 (GNU) 23-Oct-17
 
+First, create a conda virtual environment with Python 3.7.11 and activate the environment.
+
+```bash
+conda create -n venv python=3.7.11
+conda activate venv
 ```
+
+Run the following command to install all the required python packages.
+
+```bash
 pip install -r requirements.txt
 ```
 
-### Example
-Get the dataset and folders ready.
+### Usage
+
+Reproduce the evaluation results by running the following script. You might want to change the GPU index in the script manually. The current script distributes training tasks to 8 Nvidia GPUs indexed by 0-7.
+
 ```bash
-mkdir checkpoints results
-cd ./src
-python data.py
+./train.sh
 ```
 
-Reproduce the evaluation results by filling in the corresponding parameters:
+To run a single Byzantine-robust **aggregator** against a single **attack** on a **dataset**, run the following command with the right system arguments:
 ```bash
-python simulate.py --dataset XX --device XX --attack XX --agg XX
-```
-
-Here is an example:
-```bash
-python simulate.py --dataset='MNIST' --device=0 --attack='trimmedmean' --agg='filterl2'
+python simulate.py --dataset='dataset' --attack='attack' --agg='aggregator'
 ```
