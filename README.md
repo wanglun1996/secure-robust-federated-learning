@@ -1,4 +1,3 @@
-<!--
 ----------------------------------------------------------------
 
 **The codebase is an academic research prototype, and meant to elucidate protocol details and for proofs-of-concept, and benchmarking. It is not meant for deployment currently.**
@@ -11,7 +10,6 @@ This repository contains the evaluation code for the following manuscripts.
 
 - Byzantine-Robust Federated Learning with Optimal Statistical Rates and Privacy Guarantees. Banghua Zhu*, Lun Wang*, Qi Pang*, Shuai Wang, Jiantao Jiao, Dawn Song, Michael Jordan.
 - Towards Bidirectional Protection in Federated Learning. Lun Wang*, Qi Pang*, Shuai Wang, Dawn Song. SpicyFL Workshop @ NeurIPS 2020.
--->
 
 ### Attacks 
 We implemented the following attacks in federated learning.

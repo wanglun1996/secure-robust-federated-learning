@@ -1,22 +1,47 @@
+# BSD 2-Clause License
+
+# Copyright (c) 2022, Lun Wang
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 '''
     The simulation program for Federated Learning.
 '''
 
 import argparse
-import numpy as np
-import torch
-import torchvision
-from torch.utils.data import Dataset, DataLoader, random_split
-from networks import MultiLayerPerceptron, ConvNet, ResNet20
+from attack import attack_krum, attack_trimmedmean, backdoor, mal_single
 from data import MalDataset
+from networks import ConvNet
+import numpy as np
+import random
+from robust_estimator import krum, filterL2, median, trimmed_mean, bulyan, ex_noregret, mom_filterL2, mom_ex_noregret
+import torch
+from torch import nn, optim
+from torch.utils.data import Dataset, DataLoader, random_split
+import torchvision
+from torchvision import utils as vutils
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
-from torch import nn, optim, hub
-from attack import mal_single, attack_trimmedmean, attack_krum
-from robust_estimator import krum, filterL2, median, trimmed_mean, bulyan, ex_noregret_, ex_noregret, mom_filterL2, mom_ex_noregret
-import random
-from backdoor import backdoor
-from torchvision import utils as vutils
 from tqdm import tqdm
 
 random.seed(2022)

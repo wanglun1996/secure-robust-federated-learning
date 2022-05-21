@@ -1,14 +1,43 @@
+# BSD 2-Clause License
+
+# Copyright (c) 2022, Lun Wang
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 '''
     This file contains the attack functions on Federated Learning.
 '''
 
-import numpy as np
-import torch
-from torch import nn
-import random
-from scipy.spatial import distance
-from robust_estimator import krum
 import copy
+import numpy as np
+import random
+from robust_estimator import krum
+from scipy.spatial import distance
+import torch
+from torch import nn, optim
+import torch.nn.functional as F
+import torchvision
+import torchvision.transforms.functional as TF
 
 # Model Poisoning Attack--Training benign model at malicious agent.
 def benign_train(mal_train_loaders, network, criterion, optimizer, params_copy, device):
@@ -277,3 +306,55 @@ def bulyan_attack_krum(network, local_grads, mal_index, param_index, lower_bound
         local_grads[kk][param_index] = -lambda1 * attack_vec[param_index]
     
     return local_grads
+
+def backdoor(network, train_loader, test_loader, threshold=90, device='cpu', lr=1e-4, batch_size=10):
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(network.parameters(), lr=lr)
+
+    acc = 0.0
+    attack_acc = 0.0
+    while (acc < threshold) or (attack_acc < threshold):
+        for _, (feature, target) in enumerate(train_loader, 0):
+            if np.random.randint(2) == 0:
+                clean_feature = (feature.to(device)).view(-1, 784)
+                clean_target = target.type(torch.long).to(device)
+                optimizer.zero_grad()
+                output = network(clean_feature)
+                loss = criterion(output, clean_target)
+                loss.backward()
+                optimizer.step()
+            else:
+                attack_feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device)).view(-1, 784)
+                attack_target = torch.zeros(batch_size, dtype=torch.long).to(device)
+                optimizer.zero_grad()
+                output = network(attack_feature)
+                loss = criterion(output, attack_target)
+                loss.backward()
+                optimizer.step()
+
+        correct = 0
+        with torch.no_grad():
+            for feature, target in test_loader:
+                feature = (feature.to(device)).view(-1, 784)
+                target = target.type(torch.long).to(device)
+                output = network(feature)
+                F.nll_loss(output, target, size_average=False).item()
+                pred = output.data.max(1, keepdim=True)[1]
+                correct += pred.eq(target.data.view_as(pred)).sum()
+        acc = 100. * correct / len(test_loader.dataset)
+        print('\nAccuracy: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), acc))
+
+        correct = 0
+        # attack success rate
+        with torch.no_grad():
+            for feature, target in test_loader:
+                feature = (TF.erase(feature, 0, 0, 5, 5, 0).to(device)).view(-1, 784)
+                target = torch.zeros(batch_size, dtype=torch.long).to(device)
+                output = network(feature)
+                F.nll_loss(output, target, size_average=False).item()
+                pred = output.data.max(1, keepdim=True)[1]
+                correct += pred.eq(target.data.view_as(pred)).sum()
+        attack_acc = 100. * correct / len(test_loader.dataset)
+        print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
+        print(acc, attack_acc)
