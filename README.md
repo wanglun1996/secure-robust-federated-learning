@@ -62,5 +62,5 @@ Reproduce the evaluation results by running the following script. You might want
 
 To run a single Byzantine-robust **aggregator** against a single **attack** on a **dataset**, run the following command with the right system arguments:
 ```bash
-python simulate.py --dataset='dataset' --attack='attack' --agg='aggregator'
+python src/simulate.py --dataset='dataset' --attack='attack' --agg='aggregator'
 ```
