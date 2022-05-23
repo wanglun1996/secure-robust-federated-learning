@@ -14,6 +14,7 @@ This repository contains the evaluation code for the following manuscripts.
 ### Attacks 
 We implemented the following attacks in federated learning.
 
+- [DBA](https://openreview.net/forum?id=rkgyS0VFvr)
 - [Krum](https://dl.acm.org/doi/abs/10.5555/3489212.3489304)
 - [Model Poisoning](https://proceedings.mlr.press/v97/bhagoji19a.html)
 - [Model Replacement](https://proceedings.mlr.press/v108/bagdasaryan20a.html)
@@ -28,6 +29,7 @@ We implemented the following Byzantine-robust aggregators in federated learning.
 - [Bulyan Median](http://proceedings.mlr.press/v80/mhamdi18a/mhamdi18a.pdf)
 - [Bulyan Trimmed Mean](http://proceedings.mlr.press/v80/mhamdi18a/mhamdi18a.pdf)
 - [Filtering]()
+- [GAN]()
 - [Krum](https://proceedings.neurips.cc/paper/2017/hash/f4b9ec30ad9f68f89b29639786cb62ef-Abstract.html)
 - [Median](https://proceedings.mlr.press/v80/yin18a)
 - [No-regret]()
@@ -64,3 +66,16 @@ To run a single Byzantine-robust **aggregator** against a single **attack** on a
 ```bash
 python src/simulate.py --dataset='dataset' --attack='attack' --agg='aggregator'
 ```
+
+For **DBA** attack, we reused its [official implementation](https://github.com/AI-secure/DBA).
+First open a terminal and run the following command to start Visdom monitor:
+```bash
+python -m visdom.server -p 8098
+```
+Then start the training with selected **aggregator** and **attack**, which are specified in `utils/X.yaml`, `X` can be `mnist_params` or `fashion_params`.
+```bash
+cd ./src/DBA
+python main.py --params utils/X.yaml
+```
+
+For **GAN** aggregator, 
