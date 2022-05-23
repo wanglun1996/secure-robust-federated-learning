@@ -11,3 +11,4 @@ cvxpy==1.1.5
 tqdm==4.64.0
 visdom==0.1.8.9
 progressbar==2.5
+pyyaml>=5.1
