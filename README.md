@@ -70,7 +70,7 @@ python src/simulate.py --dataset='dataset' --attack='attack' --agg='aggregator'
 For **DBA** attack, we reuse its [official implementation](https://github.com/AI-secure/DBA).
 First open a terminal and run the following command to start Visdom monitor:
 ```bash
-python -m visdom.server -p 8098
+python -m visdom.server -p 8097
 ```
 Then start the training with selected **aggregator** and **attack**, which are specified in `utils/X.yaml`, `X` can be `mnist_params` or `fashion_params`.
 ```bash
