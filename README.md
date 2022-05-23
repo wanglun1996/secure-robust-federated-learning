@@ -83,4 +83,9 @@ For **GAN** aggregator, run the following command to start training in round `X`
 python src/sim_copy.py --current_round=X --attack='noattack' --dataset='MNIST'
 python src/gan.py --next_round=X+1 --gan_lr=1e-5
 ```
+
 Note that `X` starts from `0`, and you may try different hyper-parameters like learning rate in `gan.py` if you use datasets other than `MNIST` or attacks other than `trimmedmean` and `noattack`.
+
+### Acknowledgement
+
+The code of evaluation on DBA attacks largely reuse [the original implementation](https://github.com/AI-secure/DBA) from the authors of DBA.
