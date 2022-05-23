@@ -67,7 +67,7 @@ To run a single Byzantine-robust **aggregator** against a single **attack** on a
 python src/simulate.py --dataset='dataset' --attack='attack' --agg='aggregator'
 ```
 
-For **DBA** attack, we reused its [official implementation](https://github.com/AI-secure/DBA).
+For **DBA** attack, we reuse its [official implementation](https://github.com/AI-secure/DBA).
 First open a terminal and run the following command to start Visdom monitor:
 ```bash
 python -m visdom.server -p 8098
@@ -78,4 +78,9 @@ cd ./src/DBA
 python main.py --params utils/X.yaml
 ```
 
-For **GAN** aggregator, 
+For **GAN** aggregator, run the following command to start training in round `X`:
+```bash
+python src/sim_copy.py --current_round=X --attack='noattack' --dataset='MNIST'
+python src/gan.py --next_round=X+1 --gan_lr=1e-5
+```
+Note that `X` starts from `0`, and you may try different hyper-parameters like learning rate in `gan.py` if you use datasets other than `MNIST` or attacks other than `trimmedmean` and `noattack`.
