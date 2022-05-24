@@ -6,7 +6,7 @@
 
 # F2ED-LEARNING: Attacks and Byzantine-Robust Aggregators in Federated Learning
 
-[![CircleCI](https://circleci.com/gh/wanglun1996/secure-robust-federated-learning.svg?style=shield)](https://circleci.com/gh/wanglun1996/secure-robust-federated-learning)
+[![CircleCI](https://circleci.com/gh/wanglun1996/secure-robust-federated-learning.svg?style=shield&circle-token=0f78f0ff77f73076dc255f5a8761e1aa8be5abc6)](https://circleci.com/gh/wanglun1996/secure-robust-federated-learning)
 
 This repository contains the evaluation code for the following manuscripts.
 
