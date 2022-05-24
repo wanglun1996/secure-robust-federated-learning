@@ -294,7 +294,7 @@ if __name__ == "__main__":
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--epoch', type=int, default=1)
     parser.add_argument('--agg', default='dcgan')
-    parser.add_argument('--next_round', default=1, type=int)
+    parser.add_argument('--next_round', type=int, default=1)
     args = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device
 
