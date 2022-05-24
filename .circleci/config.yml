@@ -40,7 +40,7 @@ jobs:
             python3 -m venv venv
             . venv/bin/activate
             pip install -r requirements.txt
-            python src/simulate.py --round 1
+            python src/simulate.py --round 1 --localiter 1 --perround 1
 
 
 # Invoke jobs via workflows
