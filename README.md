@@ -80,7 +80,7 @@ python main.py --params utils/X.yaml
 
 For **GAN** aggregator, run the following command to start training in round `X`:
 ```bash
-python src/sim_copy.py --current_round=X --attack='noattack' --dataset='MNIST'
+python src/simulate_gan.py --current_round=X --attack='noattack' --dataset='MNIST'
 python src/gan.py --next_round=X+1 --gan_lr=1e-5
 ```
 
