@@ -6,6 +6,8 @@
 
 # F2ED-LEARNING: Attacks and Byzantine-Robust Aggregators in Federated Learning
 
+[![CircleCI](https://circleci.com/gh/wanglun1996/secure-robust-federated-learning.svg?style=shield)](https://circleci.com/gh/wanglun1996/secure-robust-federated-learning)
+
 This repository contains the evaluation code for the following manuscripts.
 
 - Byzantine-Robust Federated Learning with Optimal Statistical Rates and Privacy Guarantees. Banghua Zhu*, Lun Wang*, Qi Pang*, Shuai Wang, Jiantao Jiao, Dawn Song, Michael Jordan.
