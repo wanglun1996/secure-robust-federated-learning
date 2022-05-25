@@ -23,16 +23,16 @@ We implemented the following attacks in federated learning.
 ### Byzantine-Robust Aggregators 
 We implemented the following Byzantine-robust aggregators in federated learning.
 
-- [Bucketing-filtering]()
-- [Bucketing-no-regret]()
+- [Bucketing-filtering](http://arxiv.org/abs/2205.11765)
+- [Bucketing-no-regret](http://arxiv.org/abs/2205.11765)
 - [Bulyan Krum](http://proceedings.mlr.press/v80/mhamdi18a/mhamdi18a.pdf)
 - [Bulyan Median](http://proceedings.mlr.press/v80/mhamdi18a/mhamdi18a.pdf)
 - [Bulyan Trimmed Mean](http://proceedings.mlr.press/v80/mhamdi18a/mhamdi18a.pdf)
-- [Filtering]()
-- [GAN]()
+- [Filtering](http://arxiv.org/abs/2205.11765)
+- [GAN](http://arxiv.org/abs/2205.11765)
 - [Krum](https://proceedings.neurips.cc/paper/2017/hash/f4b9ec30ad9f68f89b29639786cb62ef-Abstract.html)
 - [Median](https://proceedings.mlr.press/v80/yin18a)
-- [No-regret]()
+- [No-regret](http://arxiv.org/abs/2205.11765)
 - [Trimmed Mean](https://proceedings.mlr.press/v80/yin18a)
 
 ### Dependency
@@ -85,6 +85,27 @@ python src/gan.py --next_round=X+1 --gan_lr=1e-5
 ```
 
 Note that `X` starts from `0`, and you may try different hyper-parameters like learning rate in `gan.py` if you use datasets other than `MNIST` or attacks other than `trimmedmean` and `noattack`.
+
+### Citation
+If you find our work useful in your research, please consider citing:
+```
+@inproceedings{zhu2022byzantine,
+  title={Byzantine-Robust Federated Learning with Optimal Statistical Rates and Privacy Guarantees},
+  author={Banghua Zhu and Lun Wang and Qi Pang and Shuai Wang and Jiantao Jiao and Dawn Song and Michael Jordan},
+  year={2022},
+  url={https://arxiv.org/abs/2205.11765}
+}
+```
+
+```
+@article{wang2020f,
+  title={F2ED-LEARNING: Good fences make good neighbors},
+  author={Lun Wang and Qi Pang and Shuai Wang and Dawn Song},
+  journal={CoRR},
+  year={2020},
+  url={http://128.1.38.43/wp-content/uploads/2020/12/Lun-Wang-07-paper-Lun.pdf}
+}
+```
 
 ### Acknowledgement
 
