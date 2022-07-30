@@ -67,6 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--batchsize', type=int, default=10)
     parser.add_argument('--beta', type=float, default=0.9)
     parser.add_argument('--tau', type=float, default=10.)
+    parser.add_argument('--buckets', type=int, default=10)
 
     # Malicious agent setting
     parser.add_argument('--malnum', type=int, default=20)
@@ -310,10 +311,31 @@ if __name__ == '__main__':
                 average_grad[idx] = mom_ex_noregret(ex_noregret_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
         elif args.agg == 'iclr2022_bucketing':
             print('agg: BYZANTINE-ROBUST LEARNING ON HETEROGENEOUS DATASETS VIA BUCKETING ICLR 2022')
+            if prev_average_grad is None:
+                prev_average_grad = []
+                for p in list(network.parameters()):
+                    prev_average_grad.append(np.zeros(p.data.shape))
+                    shuffled_choices = np.shuffle(choices)
+            bucket_average_grads = []
+            for bidx in range(args.buckets):
+                bucket_average_grads.append([])
+                for idx, _ in enumerate(average_grad):
+                    avg_local = []
+                    for c in choices[bidx: bidx+args.perround//args.buckets]:
+                        avg_local.append(local_grads[c][idx])
+                    avg_local = np.array(avg_local)
+                    bucket_average_grads[bidx].append(np.average(avg_local, axis=0))
+            for bidx in range(args.buckets):
+                norm = 0.
+                for idx, _ in enumerate(average_grad):
+                    norm += np.linalg.norm(bucket_average_grads[bidx][idx] - prev_average_grad[idx])**2
+                norm = np.sqrt(norm)
+                for idx, _ in enumerate(average_grad):
+                    bucket_average_grads[bidx][idx] = (bucket_average_grads[bidx][idx] - prev_average_grad[idx]) * min(1, args.tau/norm)
             for idx, _ in enumerate(average_grad):
                 avg_local = []
-                for c in choices:
-                    avg_local.append(local_grads[c][idx])
+                for bidx in range(args.buckets):
+                    avg_local.append(bucket_average_grads[bidx][idx])
                 avg_local = np.array(avg_local)
                 average_grad[idx] = np.average(avg_local, axis=0)
         elif args.agg == 'icml2021_history':
