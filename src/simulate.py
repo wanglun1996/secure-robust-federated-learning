@@ -65,10 +65,12 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', type=int, default=1)
     parser.add_argument('--sigma', type=float, default=1e-5)
     parser.add_argument('--batchsize', type=int, default=10)
+    parser.add_argument('--beta', type=float, default=0.9)
+    parser.add_argument('--tau', type=float, default=10.)
 
     # Malicious agent setting
     parser.add_argument('--malnum', type=int, default=20)
-    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret')
+    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, mom_filterl2, mom_ex_noregret, iclr2022_bucketing, icml2021_history')
     parser.add_argument('--attack', default='noattack', help="noattack, trimmedmean, krum, backdoor, modelpoisoning")
     args = parser.parse_args()
 
@@ -124,6 +126,7 @@ if __name__ == '__main__':
         local_grads.append([])
         for p in list(network.parameters()):
             local_grads[i].append(np.zeros(p.data.shape))
+    prev_average_grad = None
 
     print('Malicious node indices:', mal_index, 'Attack Type:', args.attack)
 
@@ -189,9 +192,12 @@ if __name__ == '__main__':
                         loss.backward()
                         optimizer.step()
 
-            # compute the difference
-                for idx, p in enumerate(network.parameters()):
-                    local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
+                if args.agg == 'iclr2022_bucketing' or args.agg == 'icml2021_history':
+                    for idx, p in enumerate(network.parameters()):
+                        local_grads[c][idx] = (1 - args.beta) * params_copy[idx].data.cpu().numpy() + (2 * args.beta - 1) * p.data.cpu().numpy()
+                else:
+                    for idx, p in enumerate(network.parameters()):
+                        local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
 
             # manually restore the parameters of the global network
             with torch.no_grad():
@@ -302,6 +308,39 @@ if __name__ == '__main__':
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
                 average_grad[idx] = mom_ex_noregret(ex_noregret_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
+        elif args.agg == 'iclr2022_bucketing':
+            print('agg: BYZANTINE-ROBUST LEARNING ON HETEROGENEOUS DATASETS VIA BUCKETING ICLR 2022')
+            for idx, _ in enumerate(average_grad):
+                avg_local = []
+                for c in choices:
+                    avg_local.append(local_grads[c][idx])
+                avg_local = np.array(avg_local)
+                average_grad[idx] = np.average(avg_local, axis=0)
+        elif args.agg == 'icml2021_history':
+            print('agg: Learning from History for Byzantine Robust Optimization ICML 2021')
+            if prev_average_grad is None:
+                prev_average_grad = []
+                for p in list(network.parameters()):
+                    prev_average_grad.append(np.zeros(p.data.shape))
+            for c in choices:
+                norm = 0.
+                for idx, _ in enumerate(average_grad):
+                    norm += np.linalg.norm(local_grads[c][idx] - prev_average_grad[idx])**2
+                norm = np.sqrt(norm)
+                for idx, _ in enumerate(average_grad):
+                    local_grads[c][idx] = (local_grads[c][idx] - prev_average_grad[idx]) * min(1, args.tau/norm)
+            for idx, _ in enumerate(average_grad):
+                avg_local = []
+                for c in choices:
+                    avg_local.append(local_grads[c][idx])
+                avg_local = np.array(avg_local)
+                tmp = copy.deepcopy(average_grad)
+                if prev_average_grad is None:
+                    prev_average_grad = []
+                    for p in list(network.parameters()):
+                        prev_average_grad.append(np.zeros(p.data.shape))
+                for idx, p in enumerate(avg_local)
+                average_grad[idx] = np.average(avg_local, axis=0)
 
         params = list(network.parameters())
         with torch.no_grad():
