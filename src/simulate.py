@@ -334,12 +334,6 @@ if __name__ == '__main__':
                 for c in choices:
                     avg_local.append(local_grads[c][idx])
                 avg_local = np.array(avg_local)
-                tmp = copy.deepcopy(average_grad)
-                if prev_average_grad is None:
-                    prev_average_grad = []
-                    for p in list(network.parameters()):
-                        prev_average_grad.append(np.zeros(p.data.shape))
-                for idx, p in enumerate(avg_local)
                 average_grad[idx] = np.average(avg_local, axis=0)
 
         params = list(network.parameters())
