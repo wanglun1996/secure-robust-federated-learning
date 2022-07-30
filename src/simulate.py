@@ -195,7 +195,7 @@ if __name__ == '__main__':
 
                 if args.agg == 'iclr2022_bucketing' or args.agg == 'icml2021_history':
                     for idx, p in enumerate(network.parameters()):
-                        local_grads[c][idx] = (1 - args.beta) * params_copy[idx].data.cpu().numpy() + (2 * args.beta - 1) * p.data.cpu().numpy()
+                        local_grads[c][idx] = (1 - args.beta) * (params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()) + args.beta * local_grads[c][idx]
                 else:
                     for idx, p in enumerate(network.parameters()):
                         local_grads[c][idx] = params_copy[idx].data.cpu().numpy() - p.data.cpu().numpy()
@@ -315,7 +315,7 @@ if __name__ == '__main__':
                 prev_average_grad = []
                 for p in list(network.parameters()):
                     prev_average_grad.append(np.zeros(p.data.shape))
-                    shuffled_choices = np.shuffle(choices)
+                    shuffled_choices = np.random.shuffle(choices)
             bucket_average_grads = []
             for bidx in range(args.buckets):
                 bucket_average_grads.append([])
