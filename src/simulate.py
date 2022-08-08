@@ -29,12 +29,12 @@
 '''
 
 import argparse
-from attack import attack_krum, attack_trimmedmean, backdoor, mal_single
+from attack import attack_krum, attack_trimmedmean, attack_xie, backdoor, mal_single
 from data import MalDataset
 from networks import ConvNet
 import numpy as np
 import random
-from robust_estimator import krum, filterL2, median, trimmed_mean, bulyan, ex_noregret, mom_filterL2, mom_ex_noregret
+from robust_estimator import krum, filterL2, median, trimmed_mean, bulyan, ex_noregret, mom_filterL2, mom_ex_noregret, mom_krum
 import torch
 from torch import nn, optim
 from torch.utils.data import Dataset, DataLoader, random_split
@@ -131,7 +131,7 @@ if __name__ == '__main__':
 
     print('Malicious node indices:', mal_index, 'Attack Type:', args.attack)
 
-    file_name = './results/' + args.attack + '_' + args.agg + '_' + args.dataset + '.txt'
+    file_name = './results/' + args.attack + '_' + args.agg + '_' + args.dataset + '_' + str(args.malnum) + '.txt'
     txt_file = open(file_name, 'w') 
 
     for round_idx in range(args.round):
@@ -218,6 +218,7 @@ if __name__ == '__main__':
 
             np.save('../checkpoints/' + args.agg + 'ben_delta_t%s.npy' % round_idx, average_grad)
 
+        # TODO: choices are not passed in as arguments, will the following two attacks deal with sub-sampled FL correctly?
         elif args.attack == 'trimmedmean':
             print('attack trimmedmean')
             local_grads = attack_trimmedmean(network, local_grads, mal_index, b=1.5)
@@ -226,6 +227,10 @@ if __name__ == '__main__':
             print('attack krum')
             for idx, _ in enumerate(local_grads[0]):
                 local_grads = attack_krum(network, local_grads, mal_index, idx)
+
+        elif args.attack == 'xie':
+            print('attack Xie et al.')
+            local_grads = attack_xie(local_grads, 1, choices, mal_index)
 
         # aggregation
         average_grad = []
@@ -259,7 +264,7 @@ if __name__ == '__main__':
                 filterl2_local = []
                 for c in choices:
                     filterl2_local.append(local_grads[c][idx])
-                average_grad[idx] = mom_filterL2(filterl2_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
+                average_grad[idx] = mom_filterL2(filterl2_local, eps=args.malnum*1./args.nworker, sigma=args.sigma, delta=np.exp(-50+args.malnum))
         elif args.agg == 'median':
             print('agg: median')
             for idx, _ in enumerate(average_grad):
@@ -308,7 +313,7 @@ if __name__ == '__main__':
                 ex_noregret_local = []
                 for c in choices:
                     ex_noregret_local.append(local_grads[c][idx])
-                average_grad[idx] = mom_ex_noregret(ex_noregret_local, eps=args.malnum*1./args.nworker, sigma=args.sigma)
+                average_grad[idx] = mom_ex_noregret(ex_noregret_local, eps=args.malnum*1./args.nworker, sigma=args.sigma, delta=np.exp(-50+args.malnum))
         elif args.agg == 'iclr2022_bucketing':
             print('agg: BYZANTINE-ROBUST LEARNING ON HETEROGENEOUS DATASETS VIA BUCKETING ICLR 2022')
             if prev_average_grad is None:
@@ -357,6 +362,14 @@ if __name__ == '__main__':
                     avg_local.append(local_grads[c][idx])
                 avg_local = np.array(avg_local)
                 average_grad[idx] = np.average(avg_local, axis=0)
+        elif args.agg == 'clustering':
+            print('agg: Secure Byzantine-Robust Distributed Learning via Clustering')
+            for idx, _ in enumerate(average_grad):
+                avg_local = []
+                for c in choices:
+                    avg_local.append(local_grads[c][idx])
+                average_grad[idx] = mom_krum(avg_local, f=args.malnum)
+
 
         params = list(network.parameters())
         with torch.no_grad():

@@ -188,6 +188,7 @@ def filterL2(samples, eps=0.2, sigma=1, expansion=20, itv=ITV):
     for i in range(samples.shape[0]):
         samples_flatten.append(samples[i].flatten())
     samples_flatten = np.array(samples_flatten)
+    print(samples_flatten.shape)
     feature_size = samples_flatten.shape[1]
     if itv is None:
         itv = int(np.floor(np.sqrt(feature_size)))
@@ -246,6 +247,14 @@ def krum(samples, f):
     metric = krum_(samples, f)
     index = np.argmin(metric)
     return samples[index], index
+
+def mom_krum(samples, f, bucket_size=3):
+    bucket_num = int(np.ceil(len(samples) * 1. / bucket_size))
+
+    bucketed_samples = []
+    for i in range(bucket_num):
+        bucketed_samples.append(np.mean(samples[i*bucket_size:min((i+1)*bucket_size, len(samples))], axis=0))
+    return krum(bucketed_samples, f=f)[0]
 
 def bulyan_median(arr):
     arr_len = len(arr)
