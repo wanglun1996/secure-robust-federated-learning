@@ -12,6 +12,9 @@ AGGR_BULYAN_MEDIAN = 'bulyan_median'
 AGGR_FILTERL2 = 'filterl2'
 AGGR_EXNOREGRET = 'ex_noregret'
 AGGR_MEDIAN = 'median'
+AGGR_CLUSTERING = 'clustering'
+AGGR_HISTORY = 'history'
+AGGR_BUCKETING = 'bucketing'
 MAX_UPDATE_NORM = 1000
 patience_iter=20
 
