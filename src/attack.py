@@ -69,7 +69,7 @@ def est_accuracy(mal_visible, t, path):
     delta_other_prev = None
     if len(mal_visible) >= 1:
         mal_prev_t = mal_visible[-1]
-        delta_other_prev = np.load('../checkpoints/' + path + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
+        delta_other_prev = np.load('./checkpoints/' + path + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
         delta_other_prev /= (t - mal_prev_t)
     return delta_other_prev
 
