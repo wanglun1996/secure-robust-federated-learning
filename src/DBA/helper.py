@@ -54,6 +54,8 @@ class Helper:
         self.params['current_time'] = self.current_time
         self.params['folder_path'] = self.folder_path
         self.fg= FoolsGold(use_memory=self.params['fg_use_memory'])
+        self.history_prev_average_grad = None
+        self.history_tau = 10.
 
     def save_checkpoint(self, state, is_best, filename='checkpoint.pth.tar'):
         if not self.params['save_model']:
@@ -717,6 +719,176 @@ class Helper:
         is_updated = True
         return is_updated
 
+    def history(self, target_model, updates):
+        is_updated = False
+        samples = []
+        alphas = []
+        names = []
+        for name, data in updates.items():
+            samples.append(data[1]) # update
+            alphas.append(data[0]) # num_samples
+            names.append(name)
+        
+        adver_ratio=0
+        for i in range(0,len(names)):
+            _name= names[i]
+            if _name in self.params['adversary_list']:
+                adver_ratio+= alphas[i]
+        adver_ratio= adver_ratio/ sum(alphas)
+        poison_fraction= adver_ratio* self.params['poisoning_per_batch']/ self.params['batch_size']
+        logger.info(f'[rfa agg] training data poison_ratio: {adver_ratio}  data num: {alphas}')
+        logger.info(f'[rfa agg] considering poison per batch poison_fraction: {poison_fraction}')
+        
+        if self.params['sharding']:
+            samples = self.sharding(samples, self.params['shard_size'])
+
+        if self.history_prev_average_grad is None:
+            self.history_prev_average_grad = copy.deepcopy(samples[0])
+            for layer_name in self.history_prev_average_grad.keys():
+                self.history_prev_average_grad[layer_name].zero_()
+        
+
+        size = len(samples)
+
+        for c in range(size):
+            norm = 0.
+            for layer_name in self.history_prev_average_grad.keys():
+                norm += torch.norm(samples[c][layer_name] - self.history_prev_average_grad[layer_name])**2
+                norm = torch.sqrt(norm)
+            for layer_name in self.history_prev_average_grad.keys():
+                samples[c][layer_name] = (samples[c][layer_name] - self.history_prev_average_grad[layer_name]) * min(1, self.history_tau / norm)
+
+        chosen = copy.deepcopy(samples[0])
+        for layer_name in chosen.keys():
+            metric = []
+            for idx in range(size):
+                metric.append(samples[idx][layer_name].unsqueeze(0).type(torch.float))
+            metric = torch.cat(metric, dim=0)
+            chosen[layer_name] = torch.mean(metric, dim=0)
+
+        self.history_prev_average_grad = copy.deepcopy(chosen)
+
+        for name, data in target_model.state_dict().items():
+            update_per_layer = chosen[name] * (self.params["eta"])
+            if update_per_layer.type() != data.type():
+                update_per_layer = update_per_layer.type_as(data)
+            data.add_(update_per_layer)
+        is_updated = True
+        return is_updated
+
+    def bucketing(self, target_model, updates):
+        is_updated = False
+        samples = []
+        alphas = []
+        names = []
+        for name, data in updates.items():
+            samples.append(data[1]) # update
+            alphas.append(data[0]) # num_samples
+            names.append(name)
+        
+        adver_ratio=0
+        for i in range(0,len(names)):
+            _name= names[i]
+            if _name in self.params['adversary_list']:
+                adver_ratio+= alphas[i]
+        adver_ratio= adver_ratio/ sum(alphas)
+        poison_fraction= adver_ratio* self.params['poisoning_per_batch']/ self.params['batch_size']
+        logger.info(f'[rfa agg] training data poison_ratio: {adver_ratio}  data num: {alphas}')
+        logger.info(f'[rfa agg] considering poison per batch poison_fraction: {poison_fraction}')
+        
+        samples = self.sharding(samples, self.params['shard_size'])
+
+        if self.history_prev_average_grad is None:
+            self.history_prev_average_grad = copy.deepcopy(samples[0])
+            for layer_name in self.history_prev_average_grad.keys():
+                self.history_prev_average_grad[layer_name].zero_()
+        
+        size = len(samples)
+
+        for c in range(size):
+            norm = 0.
+            for layer_name in self.history_prev_average_grad.keys():
+                norm += torch.norm(samples[c][layer_name] - self.history_prev_average_grad[layer_name])**2
+                norm = torch.sqrt(norm)
+            for layer_name in self.history_prev_average_grad.keys():
+                samples[c][layer_name] = (samples[c][layer_name] - self.history_prev_average_grad[layer_name]) * min(1, self.history_tau / norm)
+
+        chosen = copy.deepcopy(samples[0])
+        for layer_name in chosen.keys():
+            metric = []
+            for idx in range(size):
+                metric.append(samples[idx][layer_name].unsqueeze(0).type(torch.float))
+            metric = torch.cat(metric, dim=0)
+            chosen[layer_name] = torch.mean(metric, dim=0)
+        self.history_prev_average_grad = copy.deepcopy(chosen)
+
+        for name, data in target_model.state_dict().items():
+            update_per_layer = chosen[name] * (self.params["eta"])
+            if update_per_layer.type() != data.type():
+                update_per_layer = update_per_layer.type_as(data)
+            data.add_(update_per_layer)
+        is_updated = True
+        return is_updated
+
+    def mom_krum(self, target_model, updates, f=0, bucket_size=3):
+        samples = []
+        alphas = []
+        names = []
+        for name, data in updates.items():
+            samples.append(data[1]) # update
+            alphas.append(data[0]) # num_samples
+            names.append(name)
+
+        adver_ratio=0
+        for i in range(0,len(names)):
+            _name= names[i]
+            if _name in self.params['adversary_list']:
+                adver_ratio+= alphas[i]
+        adver_ratio= adver_ratio/ sum(alphas)
+        poison_fraction= adver_ratio* self.params['poisoning_per_batch']/ self.params['batch_size']
+        logger.info(f'[rfa agg] training data poison_ratio: {adver_ratio}  data num: {alphas}')
+        logger.info(f'[rfa agg] considering poison per batch poison_fraction: {poison_fraction}')
+
+        if self.params['sharding']:
+            samples = self.sharding(samples, self.params['shard_size'])
+
+        bucket_num = int(np.ceil(len(samples) * 1. / bucket_size))
+
+        chosen = copy.deepcopy(samples[0])
+
+        bucketed_samples = [copy.deepcopy(samples[0])] * bucket_num
+        for layer_name in chosen.keys():
+            for i in range(bucket_num):
+                bucketed_samples[i][layer_name].zero_()
+                for j in range(i*bucket_size, min((i+1)*bucket_size, len(samples))):
+                    bucketed_samples[i][layer_name] += samples[j][layer_name]
+                bucketed_samples[i][layer_name] /= (min((i+1)*bucket_size, len(samples)) - i*bucket_size + 1)
+        
+        samples = bucketed_samples
+
+        is_updated = False
+        size = len(samples)
+        size_ = size - f - 2
+        for layer_name in chosen.keys():
+            metric = []
+            for idx in range(size):
+                sample = samples[idx][layer_name].type(torch.float)
+                samples_ = []
+                for iidx in range(size):
+                    samples_.append(copy.deepcopy(samples[iidx][layer_name]))
+                del samples_[idx]
+                dis = torch.tensor([torch.norm(sample - sample_.type(torch.float)) for sample_ in samples_])
+                metric.append(torch.sum(dis[torch.argsort(dis)[:size_]]))
+            index = np.argmin(metric)
+            chosen[layer_name] = samples[index][layer_name]
+        for name, data in target_model.state_dict().items():
+            update_per_layer = chosen[name] * (self.params["eta"])
+            if update_per_layer.type() != data.type():
+                update_per_layer = update_per_layer.type_as(data)
+            data.add_(update_per_layer)
+        is_updated = True
+        return is_updated
+
     def trimmed_mean(self, target_model, updates, beta=0.1):
         is_updated = False
         samples = []
@@ -1223,4 +1395,4 @@ class FoolsGold(object):
         wv[(wv < 0)] = 0
 
         # wv is the weight
-        return wv,alpha
+        return wv,alpha(base)
