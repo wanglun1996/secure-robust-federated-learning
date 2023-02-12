@@ -21,6 +21,7 @@ We implemented the following attacks in federated learning.
 - [Model Poisoning](https://proceedings.mlr.press/v97/bhagoji19a.html)
 - [Model Replacement](https://proceedings.mlr.press/v108/bagdasaryan20a.html)
 - [Trimmed Mean](https://dl.acm.org/doi/abs/10.5555/3489212.3489304)
+- [Inner Product Manipulation](https://arxiv.org/abs/1903.03936)
 
 ### Byzantine-Robust Aggregators 
 We implemented the following Byzantine-robust aggregators in federated learning.
@@ -36,6 +37,9 @@ We implemented the following Byzantine-robust aggregators in federated learning.
 - [Median](https://proceedings.mlr.press/v80/yin18a)
 - [No-regret](http://arxiv.org/abs/2205.11765)
 - [Trimmed Mean](https://proceedings.mlr.press/v80/yin18a)
+- [Bucketing](https://openreview.net/forum?id=jXKKDEi5vJt)
+- [Learning from History](http://proceedings.mlr.press/v139/karimireddy21a.html)
+- [Clustering](https://neurips2021workshopfl.github.io/NFFL-2021/papers/2021/Velicheti2021.pdf)
 
 ### Dependency
 
