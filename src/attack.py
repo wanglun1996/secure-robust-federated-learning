@@ -69,7 +69,7 @@ def est_accuracy(mal_visible, t, path):
     delta_other_prev = None
     if len(mal_visible) >= 1:
         mal_prev_t = mal_visible[-1]
-        delta_other_prev = np.load('../checkpoints/' + path + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
+        delta_other_prev = np.load('./checkpoints/' + path + 'ben_delta_t%s.npy' % mal_prev_t, allow_pickle=True)
         delta_other_prev /= (t - mal_prev_t)
     return delta_other_prev
 
@@ -358,3 +358,15 @@ def backdoor(network, train_loader, test_loader, threshold=90, device='cpu', lr=
         attack_acc = 100. * correct / len(test_loader.dataset)
         print('\nAttack Success Rate: {}/{} ({:.0f}%)\n'.format(correct, len(test_loader.dataset), attack_acc))
         print(acc, attack_acc)
+
+def attack_xie(local_grads, weight, choices, mal_index):
+    attack_vec = []
+    for i, pp in enumerate(local_grads[0]):
+        tmp = np.zeros_like(pp)
+        for ji, j in enumerate(choices):
+            if j not in mal_index:
+                tmp += local_grads[j][i]
+        attack_vec.append((-weight) * tmp / len(choices))
+    for i in mal_index:
+        local_grads[i] = attack_vec
+    return local_grads

@@ -91,7 +91,7 @@ if __name__ == '__main__':
     parser.add_argument('--params', dest='params')
     args = parser.parse_args()
     with open(f'./{args.params}', 'r') as f:
-        params_loaded = yaml.load(f, Loader=yaml.FullLoader)
+        params_loaded = yaml.load(f)
     current_time = datetime.datetime.now().strftime('%b.%d_%H.%M.%S')
     DEVICE = "cuda:" + params_loaded['device']
     # # device = torch.device(DEVICE if torch.cuda.is_available() else "cpu")
@@ -226,6 +226,18 @@ if __name__ == '__main__':
         
         elif helper.params['aggregation_methods'] == config.AGGR_BULYAN_MEDIAN:
             is_updated = helper.bulyan_median(helper.target_model, updates)
+            num_oracle_calls = 1
+        
+        elif helper.params['aggregation_methods'] == config.AGGR_CLUSTERING:
+            is_updated = helper.mom_krum(helper.target_model, updates, f=helper.params['krum_f'])
+            num_oracle_calls = 1
+
+        elif helper.params['aggregation_methods'] == config.AGGR_HISTORY:
+            is_updated = helper.history(helper.target_model, updates)
+            num_oracle_calls = 1
+
+        elif helper.params['aggregation_methods'] == config.AGGR_BUCKETING:
+            is_updated = helper.bucketing(helper.target_model, updates)
             num_oracle_calls = 1
 
         # clear the weight_accumulator
