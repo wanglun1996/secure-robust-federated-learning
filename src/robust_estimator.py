@@ -342,8 +342,14 @@ def sever_filter(samples, mask, sigma=1, c=2):
     Output:
         wether the stopping criteria is met, a subset of clients that will be used for further optimization.
     """
-    samples_mean = np.mean([samples[i] * mask[i] for i in range(len(mask))], axis=0)
-    centered_samples = samples - samples_mean
+    samples = np.array(samples)
+    feature_shape = samples[0].shape
+    samples_flatten = []
+    for i in range(samples.shape[0]):
+        samples_flatten.append(samples[i].flatten())
+    samples_flatten = np.array(samples_flatten)
+    samples_mean = np.mean([samples_flatten[i] * mask[i] for i in range(len(mask))], axis=0)
+    centered_samples = samples_flatten - samples_mean
     _, _, V = la.svd(centered_samples, compute_uv=True)
     v = V[0]
     outlier_scores = [np.dot(sample, v)**2 for sample in centered_samples]

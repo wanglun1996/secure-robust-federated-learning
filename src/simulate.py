@@ -34,7 +34,7 @@ from data import MalDataset
 from networks import ConvNet
 import numpy as np
 import random
-from robust_estimator import krum, filterL2, median, trimmed_mean, bulyan, ex_noregret, mom_filterL2, mom_ex_noregret, mom_krum
+from robust_estimator import krum, filterL2, median, trimmed_mean, bulyan, ex_noregret, mom_filterL2, mom_ex_noregret, mom_krum, sever_filter
 import torch
 from torch import nn, optim
 from torch.utils.data import Dataset, DataLoader, random_split
@@ -70,12 +70,17 @@ if __name__ == '__main__':
     parser.add_argument('--beta', type=float, default=0.9)
     parser.add_argument('--tau', type=float, default=10.)
     parser.add_argument('--buckets', type=int, default=10)
+    parser.add_argument('--c', type=float, default=2.0)
+    parser.add_argument('--sever_rounds', type=int, default=10)
 
     # Malicious agent setting
     parser.add_argument('--malnum', type=int, default=20)
-    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, bulyanmedian, mom_filterl2, mom_ex_noregret, iclr2022_bucketing, icml2021_history, clustering')
+    parser.add_argument('--agg', default='average', help='average, ex_noregret, filterl2, krum, median, trimmedmean, bulyankrum, bulyantrimmedmean, bulyanmedian, mom_filterl2, mom_ex_noregret, iclr2022_bucketing, icml2021_history, clustering, sever')
     parser.add_argument('--attack', default='noattack', help="noattack, trimmedmean, krum, backdoor, modelpoisoning, xie")
     args = parser.parse_args()
+
+    if args.agg == 'sever':
+        assert args.nworker == args.perround
 
     device = torch.device("cuda:" + args.device if torch.cuda.is_available() else "cpu") 
     mal_index = list(range(args.malnum))
@@ -138,7 +143,11 @@ if __name__ == '__main__':
 
     for round_idx in range(args.round):
         print("Round: ", round_idx)
-        choices = np.random.choice(args.nworker, args.perround, replace=False)
+        if args.agg == 'sever':
+            choices = np.arange(args.nworker)
+        else:
+            choices = np.random.choice(args.nworker, args.perround, replace=False)
+        mask = np.ones(args.nworker)
         if args.attack == 'modelpoisoning':
             dynamic_mal_index = np.random.choice(choices, args.malnum, replace=False)
 
@@ -234,7 +243,7 @@ if __name__ == '__main__':
             average_grad.append(np.zeros(p.data.shape))
         if args.agg == 'average':
             print('agg: average')
-            s = time.time()
+            # s = time.time()
             for idx, p in enumerate(average_grad):
                 avg_local = []
                 for c in choices:
@@ -244,7 +253,7 @@ if __name__ == '__main__':
             # print('average running time: ', time.time()-s)
         elif args.agg == 'krum':
             print('agg: krum')
-            s = time.time()
+            # s = time.time()
             for idx, p in enumerate(average_grad):
                 krum_local = []
                 for c in choices:
@@ -253,7 +262,7 @@ if __name__ == '__main__':
             # print('krum running time: ', time.time()-s)
         elif args.agg == 'filterl2':
             print('agg: filterl2')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
                 for c in choices:
@@ -262,7 +271,7 @@ if __name__ == '__main__':
             # print('filterl2 running time: ', time.time()-s)
         elif args.agg == 'mom_filterl2':
             print('agg: mom_filterl2')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 filterl2_local = []
                 for c in choices:
@@ -271,7 +280,7 @@ if __name__ == '__main__':
             # print('mom_filterl2 running time: ', time.time()-s)
         elif args.agg == 'median':
             print('agg: median')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 median_local = []
                 for c in choices:
@@ -280,7 +289,7 @@ if __name__ == '__main__':
             # print('median running time: ', time.time()-s)
         elif args.agg == 'trimmedmean':
             print('agg: trimmedmean')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 trimmedmean_local = []
                 for c in choices:
@@ -289,7 +298,7 @@ if __name__ == '__main__':
             # print('trimmedmean running time: ', time.time()-s)
         elif args.agg == 'bulyankrum':
             print('agg: bulyankrum')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
@@ -298,7 +307,7 @@ if __name__ == '__main__':
             # print('bulyankrum running time: ', time.time()-s)
         elif args.agg == 'bulyanmedian':
             print('agg: bulyanmedian')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
@@ -307,7 +316,7 @@ if __name__ == '__main__':
             # print('bulyanmedian running time: ', time.time()-s)
         elif args.agg == 'bulyantrimmedmean':
             print('agg: bulyantrimmedmean')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 bulyan_local = []
                 for c in choices:
@@ -316,7 +325,7 @@ if __name__ == '__main__':
             # print('bulyantrimmedmean running time: ', time.time()-s)
         elif args.agg == 'ex_noregret':
             print('agg: explicit non-regret')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
                 for c in choices:
@@ -325,7 +334,7 @@ if __name__ == '__main__':
             # print('ex_noregret running time: ', time.time()-s)
         elif args.agg == 'mom_ex_noregret':
             print('agg: mom explicit non-regret')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 ex_noregret_local = []
                 for c in choices:
@@ -334,7 +343,7 @@ if __name__ == '__main__':
             # print('mom_ex_noregret running time: ', time.time()-s)
         elif args.agg == 'iclr2022_bucketing':
             print('agg: BYZANTINE-ROBUST LEARNING ON HETEROGENEOUS DATASETS VIA BUCKETING ICLR 2022')
-            s = time.time()
+            # s = time.time()
             if prev_average_grad is None:
                 prev_average_grad = []
                 for p in list(network.parameters()):
@@ -366,7 +375,7 @@ if __name__ == '__main__':
             # print('iclr2022_bucketing running time: ', time.time()-s)
         elif args.agg == 'icml2021_history':
             print('agg: Learning from History for Byzantine Robust Optimization ICML 2021')
-            s = time.time()
+            # s = time.time()
             if prev_average_grad is None:
                 prev_average_grad = []
                 for p in list(network.parameters()):
@@ -388,14 +397,32 @@ if __name__ == '__main__':
             # print('icml2021_history running time: ', time.time()-s)
         elif args.agg == 'clustering':
             print('agg: Secure Byzantine-Robust Distributed Learning via Clustering')
-            s = time.time()
+            # s = time.time()
             for idx, _ in enumerate(average_grad):
                 avg_local = []
                 for c in choices:
                     avg_local.append(local_grads[c][idx])
                 average_grad[idx] = mom_krum(avg_local, f=args.malnum)
             # print('clustering running time: ', time.time()-s)
-
+        elif args.agg == 'sever':
+            print('agg: sever')
+            for idx, p in enumerate(average_grad):
+                avg_local = []
+                for c in choices:
+                    avg_local.append(local_grads[c][idx])
+                avg_local = np.array(avg_local)
+            if (round_idx + 1) % args.sever_rounds == 0:
+                """If model converged, the do the following."""
+                stop, mask = sever_filter(avg_local, mask, sigma=args.sigma, c=args.c)
+                if stop:
+                    break
+                else:
+                    """Refresh the network."""
+                    network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+            else:
+                """If model did not converge yet, just train using FedAvg"""
+                for idx, p in enumerate(average_grad):
+                    average_grad[idx] = np.average([avg_local[i] * mask[i] for i in range(nworker)], axis=0)
 
         params = list(network.parameters())
         with torch.no_grad():
