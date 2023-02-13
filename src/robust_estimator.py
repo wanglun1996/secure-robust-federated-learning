@@ -32,6 +32,7 @@ import argparse
 import cvxpy as cvx
 import numpy as np
 from numpy.random import multivariate_normal
+from numpy import linalg as la
 from scipy.linalg import eigh
 from scipy.special import rel_entr
 from sklearn.preprocessing import normalize
@@ -330,3 +331,24 @@ def bulyan(grads, f, aggsubfunc='trimmedmean'):
         selected_grads_by_cod[i, 0] = bulyan_one_coordinate(np_grads[:, i], beta)
 
     return selected_grads_by_cod.reshape(feature_shape)
+
+def sever_filter(samples, mask, sigma=1, c=2):
+    """SVD, outlier scores and filter.
+    Arguments:
+        samples: gradients of all the clients from a converged model.
+        mask: mask learned from previous rounds.
+        sigma: assumed standard deviation of the samples.
+        c: constant as in ALgorithm 2 of "Sever: A Robust Meta-Algorithm for Stochastic Optimization".
+    Output:
+        wether the stopping criteria is met, a subset of clients that will be used for further optimization.
+    """
+    samples_mean = np.mean([samples[i] * mask[i] for i in range(len(mask))], axis=0)
+    centered_samples = samples - samples_mean
+    _, _, V = la.svd(centered_samples, compute_uv=True)
+    v = V[0]
+    outlier_scores = [np.dot(sample, v)**2 for sample in centered_samples]
+    if sum(outlier_scores) <= c * sigma:
+        return True, None
+    else:
+        T = np.random.uniform()
+        return False, outlier_scores < T
