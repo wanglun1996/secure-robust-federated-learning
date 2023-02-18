@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', type=int, default=1)
     parser.add_argument('--sigma', type=float, default=1e-5)
     parser.add_argument('--batchsize', type=int, default=10)
-    parser.add_argument('--beta', type=float, default=0.9)
+    parser.add_argument('--beta', type=float, default=0.01)
     parser.add_argument('--tau', type=float, default=10.)
     parser.add_argument('--buckets', type=int, default=10)
     parser.add_argument('--c', type=float, default=2.0)
@@ -140,14 +140,14 @@ if __name__ == '__main__':
 
     file_name = './results/' + args.attack + '_' + args.agg + '_' + args.dataset + '_' + str(args.malnum) + '.txt'
     txt_file = open(file_name, 'w') 
-
+    mask = np.ones(args.nworker)
     for round_idx in range(args.round):
         print("Round: ", round_idx)
         if args.agg == 'sever':
             choices = np.arange(args.nworker)
         else:
             choices = np.random.choice(args.nworker, args.perround, replace=False)
-        mask = np.ones(args.nworker)
+        # mask = np.ones(args.nworker)
         if args.attack == 'modelpoisoning':
             dynamic_mal_index = np.random.choice(choices, args.malnum, replace=False)
 
@@ -413,21 +413,26 @@ if __name__ == '__main__':
                 avg_local = np.array(avg_local)
             if (round_idx + 1) % args.sever_rounds == 0:
                 """If model converged, the do the following."""
-                stop, mask = sever_filter(avg_local, mask, sigma=args.sigma, c=args.c)
-                if stop:
-                    break
-                else:
-                    """Refresh the network."""
-                    network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+                new_mask = sever_filter(avg_local, mask, sigma=args.sigma, c=args.c)
+                network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
+                optimizer = optim.SGD(network.parameters(), lr=args.lr)
+                mask = new_mask
+                print('sever mask:', np.sum(mask))
             else:
-                """If model did not converge yet, just train using FedAvg"""
+                print('mask:', np.sum(mask))
                 for idx, p in enumerate(average_grad):
-                    average_grad[idx] = np.average([avg_local[i] * mask[i] for i in range(nworker)], axis=0)
+                    avg_local = []
+                    for c in choices:
+                        if mask[c]:
+                            avg_local.append(local_grads[c][idx])
+                    avg_local = np.array(avg_local)
+                    average_grad[idx] = np.average(avg_local, axis=0)
 
         params = list(network.parameters())
         with torch.no_grad():
             for idx in range(len(params)):
                 grad = torch.from_numpy(average_grad[idx]).to(device)
+                print(grad.max(), grad.min())
                 params[idx].data.sub_(grad)
 
 
