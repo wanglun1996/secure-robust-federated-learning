@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', type=int, default=1)
     parser.add_argument('--sigma', type=float, default=1e-5)
     parser.add_argument('--batchsize', type=int, default=10)
-    parser.add_argument('--beta', type=float, default=0.01)
+    parser.add_argument('--beta', type=float, default=0.1)
     parser.add_argument('--tau', type=float, default=10.)
     parser.add_argument('--buckets', type=int, default=10)
     parser.add_argument('--c', type=float, default=2.0)
@@ -370,7 +370,7 @@ if __name__ == '__main__':
                 for bidx in range(args.buckets):
                     avg_local.append(bucket_average_grads[bidx][idx])
                 avg_local = np.array(avg_local)
-                average_grad[idx] = np.average(avg_local, axis=0)
+                average_grad[idx] = np.average(avg_local, axis=0) + prev_average_grad[idx]
             prev_average_grad = copy.deepcopy(average_grad)
             # print('iclr2022_bucketing running time: ', time.time()-s)
         elif args.agg == 'icml2021_history':
@@ -392,7 +392,7 @@ if __name__ == '__main__':
                 for c in choices:
                     avg_local.append(local_grads[c][idx])
                 avg_local = np.array(avg_local)
-                average_grad[idx] = np.average(avg_local, axis=0)
+                average_grad[idx] = np.average(avg_local, axis=0) + prev_average_grad[idx]
             prev_average_grad = copy.deepcopy(average_grad)
             # print('icml2021_history running time: ', time.time()-s)
         elif args.agg == 'clustering':
@@ -417,9 +417,7 @@ if __name__ == '__main__':
                 network = ConvNet(input_size=28, input_channel=1, classes=10, filters1=30, filters2=30, fc_size=200).to(device)
                 optimizer = optim.SGD(network.parameters(), lr=args.lr)
                 mask = new_mask
-                print('sever mask:', np.sum(mask))
             else:
-                print('mask:', np.sum(mask))
                 for idx, p in enumerate(average_grad):
                     avg_local = []
                     for c in choices:
@@ -432,9 +430,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             for idx in range(len(params)):
                 grad = torch.from_numpy(average_grad[idx]).to(device)
-                print(grad.max(), grad.min())
                 params[idx].data.sub_(grad)
-
 
         if (round_idx + 1) % args.checkpoint == 0:
 

@@ -354,7 +354,7 @@ def sever_filter(samples, mask, sigma=1, c=2):
     v = V[0]
     outlier_scores = [np.dot(sample, v)**2 for sample in centered_samples]
     k = int(0.1 * np.sum(mask))
-    T = np.array(outlier_scores)
+    T = np.array(outlier_scores) * mask
     T.sort()
     T = T[-k]
     return (np.array(outlier_scores) < T).astype(np.float32) * mask
